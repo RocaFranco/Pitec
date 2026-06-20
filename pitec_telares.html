@@ -87,13 +87,23 @@ const CAT_FORMATOS=[
  {forma:'Transparente',fmt:57,vent:'No',letra:'J',ult:18},
 ];
 const FORMAS={'Tubular':[40,47,53,57,60],'Plano':[71,82,120,102],'Transparente':[40,47,57]};
-// último fin por telar (demo, vendría del Sheet)
-const ULT_FIN={5:'2026-06-18T03:40',8:'2026-06-17T22:10'};
-const HOY=[
- {cod:'B1984',tel:5,forma:'Tubular',fmt:47,cat:'Para Laminar',mts:8000,kg:410},
- {cod:'A95',tel:8,forma:'Tubular',fmt:40,cat:'Convencional',mts:4000,kg:178},
-];
+let ULT_FIN={};   // último fin por telar (del Sheet)
+let HOY=[];       // bobinas cargadas hoy (del Sheet)
 let st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:null};
+function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
+function toInput(v){ const d=new Date(v); if(isNaN(d)) return ''; const p=n=>('0'+n).slice(-2); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
+async function loadData(){
+  document.getElementById('hDate').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+  if(!apiListo()){ renderHoy(); return; }
+  try{
+    const tel=await apiGet({action:'read',sheet:'Telares'});
+    HOY=(tel||[]).filter(r=>esHoy(r['Fecha Hora Fin']||r['Fecha Hora Inicio']))
+      .map(r=>({cod:r['Código Bobina'],tel:r['Nº Telar'],forma:r['Forma'],fmt:r['Formato'],cat:r['Categoría'],mts:+r['Metros']||0,kg:+r['Kg']||0})).reverse();
+    ULT_FIN={};
+    (tel||[]).forEach(r=>{ const t=r['Nº Telar'],f=r['Fecha Hora Fin']; if(t&&f){ const d=new Date(f); if(!isNaN(d)){ const cur=ULT_FIN[t]?new Date(ULT_FIN[t]):null; if(!cur||d>cur) ULT_FIN[t]=toInput(f); } } });
+    renderHoy();
+  }catch(e){ renderHoy(); }
+}
 
 function renderHoy(){
   document.getElementById('hoyBody').innerHTML=HOY.map(b=>
@@ -186,7 +196,7 @@ async function guardar(){
   }catch(e){alert('Error de conexión: '+e);}
   btn.textContent='GUARDAR';btn.disabled=false;
 }
-renderHoy();renderTelares();renderFormas();
+renderTelares();renderFormas();loadData();
 </script>
 </body>
 </html>

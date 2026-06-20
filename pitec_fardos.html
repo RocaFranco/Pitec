@@ -60,11 +60,7 @@
 <script>
 const TIPOS=['Hilo Blanco','Hilo Cristal','Scrap Laminadora'];
 let tipo=null;
-let PALLETS=[
- {cod:'FARDO-2606-01',mat:'Cristal',neto:649},
- {cod:'FARDO-2606-02',mat:'Cristal',neto:589},
- {cod:'FARDO-2606-03',mat:'Malo con Carbonato',neto:610},
-];
+let PALLETS=[];
 let seq=3, sel=new Set();
 function renderPlanta(){document.getElementById('enPlanta').innerHTML=PALLETS.map(p=>
   `<div class="li"><span style="width:140px" class="cod">${p.cod}</span><span style="flex:1">${p.mat}</span><span style="width:90px;text-align:right">${p.neto} kg</span></div>`).join('')
@@ -79,6 +75,8 @@ async function addFardo(){const b=+document.getElementById('bruto').value;if(!ti
   if(r&&r.ok){PALLETS.push({cod:r.codigo,mat:tipo,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
   else alert('No se pudo: '+((r&&r.error)||'error'));}
 async function cargarPlanta(){
+  const hd=document.querySelector('header .date'); if(hd) hd.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+  const fe=document.getElementById('fEnt'); if(fe&&!fe.value){const d=new Date();fe.value=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
   if(!apiListo())return;
   try{const f=await apiGet({action:'read',sheet:'Fardos'});
     PALLETS=f.filter(r=>String(r['Estado']||'').toLowerCase()==='en planta').map(r=>({cod:r['Código Pallet'],mat:r['Tipo Material'],neto:Number(r['Kg Neto'])||0}));

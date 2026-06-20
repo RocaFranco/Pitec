@@ -57,9 +57,11 @@
 
 <script src="pitec_api.js"></script>
 <script>
-const MP=['XSD 6200T','PP H-103','1100T','LYD6200K','KYD 6110','PP H 503HS','9048','30080','1001 BR','APC','APP','BC818','901021'];
-const ENT=[{f:'18/06',cod:'KYD 6110',kg:13500},{f:'13/06',cod:'LYD6200K',kg:13500}];
-const RET=[{f:'17/06',cod:'1100T',kg:3000,q:'Nota 5372'},{f:'12/06',cod:'APP',kg:25,q:'Sebastián'}];
+let MP=['XSD 6200T','PP H-103','1100T','LYD6200K','KYD 6110','PP H 503HS','9048','30080','1001 BR','APC','APP','BC818','901021'];
+let ENT=[];
+let RET=[];
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+const fdate=v=>{const d=new Date(v);return isNaN(d)?String(v||''):d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});};
 function fillSel(id){document.getElementById(id).innerHTML='<option value="">— Código MP —</option>'+MP.map(m=>`<option>${m}</option>`).join('');}
 function setTab(t){const e=t==='ent';
   document.getElementById('tEnt').classList.toggle('on',e);document.getElementById('tRet').classList.toggle('on',!e);
@@ -75,16 +77,32 @@ async function addEnt(){const c=document.getElementById('eCod').value,k=+documen
   if(!apiListo()){alert('Falta conectar el Sheet');return;}
   const fecha=document.getElementById('eFecha').value;
   const r=await apiPost({action:'append',sheet:'Entrada MP',data:{'Fecha':fecha,'Código MP':c,'Kg':k,'Proveedor':document.getElementById('eProv').value}});
-  if(r&&r.ok){ENT.unshift({f:fecha||'hoy',cod:c,kg:k});document.getElementById('eKg').value='';document.getElementById('eProv').value='';renderEnt();}
+  if(r&&r.ok){ENT.unshift({f:fdate(fecha),cod:c,kg:k});document.getElementById('eKg').value='';document.getElementById('eProv').value='';renderEnt();}
   else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
 async function addRet(){const c=document.getElementById('rCod').value,k=+document.getElementById('rKg').value;
   if(!c||!(k>0)){alert('Elegí código y kg');return;}
   if(!apiListo()){alert('Falta conectar el Sheet');return;}
   const fecha=document.getElementById('rFecha').value,q=document.getElementById('rQuien').value;
   const r=await apiPost({action:'append',sheet:'Retiro MP',data:{'Fecha':fecha,'Código MP':c,'Kg':k,'Retirado por / Nota':q}});
-  if(r&&r.ok){RET.unshift({f:fecha||'hoy',cod:c,kg:k,q:q||'—'});document.getElementById('rKg').value='';document.getElementById('rQuien').value='';renderRet();}
+  if(r&&r.ok){RET.unshift({f:fdate(fecha),cod:c,kg:k,q:q||'—'});document.getElementById('rKg').value='';document.getElementById('rQuien').value='';renderRet();}
   else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
-fillSel('eCod');fillSel('rCod');renderEnt();renderRet();
+async function loadMP(){
+  const hd=document.querySelector('header .date'); if(hd) hd.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+  document.getElementById('eFecha').value=todayISO(); document.getElementById('rFecha').value=todayISO();
+  if(apiListo()){
+    try{
+      const [cat,ent,ret]=await Promise.all([
+        apiGet({action:'read',sheet:'Cat Materia Prima'}),
+        apiGet({action:'read',sheet:'Entrada MP'}),
+        apiGet({action:'read',sheet:'Retiro MP'})]);
+      const lst=(cat||[]).map(r=>r['Código']).filter(Boolean); if(lst.length) MP=lst;
+      ENT=(ent||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),cod:r['Código MP'],kg:+r['Kg']||0}));
+      RET=(ret||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),cod:r['Código MP'],kg:+r['Kg']||0,q:r['Retirado por / Nota']||'—'}));
+    }catch(e){}
+  }
+  fillSel('eCod');fillSel('rCod');renderEnt();renderRet();
+}
+loadMP();
 </script>
 </body>
 </html>

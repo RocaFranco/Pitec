@@ -88,7 +88,7 @@ let STOCK=[
  {cod:'F134',forma:'Plano',cat:'Plana',fmt:82,mts:6000,kg:305},
  {cod:'G636',forma:'Plano',cat:'Plana',fmt:102,mts:10000,kg:550},
 ];
-const REMITOS=[{nota:'5025',destino:'Álamo',mts:86620,kg:4879},{nota:'4976',destino:'Álamo',mts:137221,kg:7489}];
+let REMITOS=[];
 let bobs=[], catSel=null, fmtSel=null, nextNota=5400;
 
 const uniq=a=>[...new Set(a)];
@@ -164,7 +164,21 @@ async function confirmar(){
     } else alert('No se pudo: '+((r&&r.error)||'error'));
   }catch(e){alert('Error: '+e);}
   btn.textContent='CONFIRMAR → ÁLAMO';btn.disabled=false;}
-renderRemitos();
+async function init(){
+  const hd=document.querySelector('header .date'); if(hd) hd.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+  if(apiListo()){
+    try{
+      const ent=await apiGet({action:'read',sheet:'Entregas'});
+      const g={};
+      (ent||[]).forEach(r=>{ const n=r['Nº Remito']; if(n===''||n==null) return;
+        (g[n]=g[n]||{nota:String(n),destino:r['Destino']||'Álamo',mts:0,kg:0});
+        g[n].mts+=Number(r['Metros'])||0; g[n].kg+=Number(r['Kg'])||0; });
+      REMITOS=Object.values(g).sort((a,b)=>Number(b.nota)-Number(a.nota)).slice(0,10);
+    }catch(e){}
+  }
+  renderRemitos();
+}
+init();
 </script>
 </body>
 </html>
