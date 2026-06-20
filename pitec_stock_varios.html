@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Stock Varios</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<script src="pitec_api.js"></script>
+<style>
+  main{padding-bottom:30px;max-width:none;width:auto;margin:18px 20px}
+  .tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px}
+  .tot .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .tot .v{font-size:26px;font-weight:800;color:var(--acc-d)} .tot .l{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+  .tot .kpi.bad .v{color:var(--bad)}
+  .buscar{width:100%;max-width:360px;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;background:#fff}
+  .matwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  table.mp{border-collapse:collapse;width:100%;font-size:14px;white-space:nowrap}
+  table.mp th,table.mp td{border:1px solid #e3e8f0;padding:9px 13px;text-align:right}
+  table.mp th{background:#f0f3f8;color:var(--mut);text-transform:uppercase;font-size:11px;position:sticky;top:0}
+  table.mp td.l,table.mp th.l{text-align:left}
+  table.mp td.art{font-weight:700;color:var(--acc-d)}
+  table.mp td.stk{font-weight:800}
+  table.mp tr.neg td.stk{color:var(--bad)}
+  table.mp tr.tot td{font-weight:800;background:#fff7e6;border-top:2px solid #d9a93b}
+  .loading{color:var(--mut);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>STOCK VARIOS</b></h1>
+  <span class="badge green">INSUMOS</span>
+  <span class="date" id="hoy"></span>
+</header>
+<main>
+  <div class="tot" id="kpis"></div>
+  <input class="buscar" id="q" placeholder="🔍 Buscar artículo…" oninput="render()">
+  <div class="matwrap"><div id="tabla" class="loading">Calculando stock desde el Sheet…</div></div>
+</main>
+<script>
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
+const fmt=n=>Math.round(n).toLocaleString('es-AR');
+const key=v=>String(v||'').trim();
+let ROWS=[];
+
+async function init(){
+  if(!apiListo()){document.getElementById('tabla').innerHTML='<div class="loading">Sin conexión</div>';return;}
+  let cv,ent,ret;
+  try{ [cv,ent,ret]=await Promise.all([
+    apiGet({action:'read',sheet:'Cat Varios'}),
+    apiGet({action:'read',sheet:'Entrada Varios'}),
+    apiGet({action:'read',sheet:'Retiro Varios'})]); }
+  catch(e){document.getElementById('tabla').innerHTML='<div class="loading">Error leyendo el Sheet</div>';return;}
+
+  const entra={}, retiro={};
+  const add=(o,a,c)=>{ a=key(a); if(a) o[a]=(o[a]||0)+num(c); };
+  (ent||[]).forEach(r=>add(entra,r['Artículo'],r['Cantidad']));
+  (ret||[]).forEach(r=>add(retiro,r['Artículo'],r['Cantidad']));
+  const catArt=(cv||[]).map(r=>key(r['Artículo'])).filter(Boolean);
+
+  const arts=[...new Set([...catArt,...Object.keys(entra),...Object.keys(retiro)])];
+  ROWS=arts.map(a=>{const e=entra[a]||0,r=retiro[a]||0; return {art:a, e, r, stock:e-r};});
+  ROWS.sort((a,b)=>a.art.localeCompare(b.art));
+  render();
+}
+
+function render(){
+  const q=(document.getElementById('q').value||'').trim().toUpperCase();
+  const rows=ROWS.filter(r=>!q || r.art.toUpperCase().includes(q));
+  const totStock=ROWS.reduce((a,r)=>a+r.stock,0);
+  const conStock=ROWS.filter(r=>r.stock>0).length;
+  const negs=ROWS.filter(r=>r.stock<0).length;
+  document.getElementById('kpis').innerHTML=
+    `<div class="kpi"><div class="v">${fmt(totStock)}</div><div class="l">Unidades en stock</div></div>
+     <div class="kpi"><div class="v">${conStock}</div><div class="l">Artículos con stock</div></div>
+     <div class="kpi ${negs?'bad':''}"><div class="v">${negs}</div><div class="l">En negativo (revisar)</div></div>`;
+  if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
+  let h=`<table class="mp"><thead><tr><th class="l">Artículo</th><th>Entradas</th><th>Retiros</th><th>STOCK</th></tr></thead><tbody>`;
+  rows.forEach(r=>{ h+=`<tr class="${r.stock<0?'neg':''}"><td class="l art">${r.art}</td>`+
+    `<td>${fmt(r.e)}</td><td>${fmt(r.r)}</td><td class="stk">${fmt(r.stock)}${r.stock<0?' ⚠️':''}</td></tr>`; });
+  const te=rows.reduce((a,r)=>a+r.e,0),tr=rows.reduce((a,r)=>a+r.r,0),ts=rows.reduce((a,r)=>a+r.stock,0);
+  h+=`<tr class="tot"><td class="l">TOTAL</td><td>${fmt(te)}</td><td>${fmt(tr)}</td><td>${fmt(ts)}</td></tr>`;
+  h+='</tbody></table>';
+  document.getElementById('tabla').innerHTML=h;
+}
+init();
+</script>
+</body>
+</html>

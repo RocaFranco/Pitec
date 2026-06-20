@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Varios</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:30px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:700;padding:14px;border-radius:12px;cursor:pointer;text-align:center;font-size:15px}
+  .tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .tab.on.ret{background:var(--bad);border-color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>VARIOS</b></h1>
+  <span class="badge" id="hBadge">ENTRADA</span>
+  <span class="date"></span>
+</header>
+
+<main>
+  <div class="tabs">
+    <div class="tab on" id="tEnt" onclick="setTab('ent')">📥 Entrada</div>
+    <div class="tab" id="tRet" onclick="setTab('ret')">📤 Retiro</div>
+  </div>
+
+  <!-- ENTRADA -->
+  <div id="paneEnt">
+    <div class="step"><div class="lbl">Cargar entrada (ingreso de insumo)</div>
+      <div class="num2">
+        <div class="f"><input type="date" id="eFecha"></div>
+        <div class="f"><select id="eArt"></select></div>
+        <div class="f"><input type="number" id="eCant" placeholder="Cantidad"></div>
+        <button class="save" style="flex:0 0 auto" onclick="addEnt()">＋ Cargar</button></div></div>
+    <h3 class="sec">Últimas entradas</h3>
+    <div class="listbox"><div class="lh">Fecha · Artículo · Cantidad</div><div id="listEnt"></div></div>
+  </div>
+
+  <!-- RETIRO -->
+  <div id="paneRet" class="hidden">
+    <div class="step"><div class="lbl">Cargar retiro (salida de insumo)</div>
+      <div class="num2">
+        <div class="f"><input type="date" id="rFecha"></div>
+        <div class="f"><select id="rArt"></select></div>
+        <div class="f"><input type="number" id="rCant" placeholder="Cantidad"></div>
+        <div class="f"><select id="rLeg"></select></div>
+        <button class="save" style="flex:0 0 auto;background:var(--bad)" onclick="addRet()">＋ Cargar</button></div></div>
+    <h3 class="sec">Últimos retiros</h3>
+    <div class="listbox"><div class="lh">Fecha · Artículo · Cantidad · Legajo</div><div id="listRet"></div></div>
+  </div>
+</main>
+
+<script src="pitec_api.js"></script>
+<script>
+let ART=[];   // artículos del catálogo (Cat Varios)
+let PERS=[];  // {leg, nombre} de Cat Personal
+let ENT=[], RET=[];
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+const fdate=v=>{const d=new Date(v);return isNaN(d)?String(v||''):d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});};
+
+function fillArt(id){document.getElementById(id).innerHTML='<option value="">— Artículo —</option>'+ART.map(a=>`<option>${a}</option>`).join('');}
+function fillLeg(){document.getElementById('rLeg').innerHTML='<option value="">— Legajo —</option>'+PERS.map(p=>`<option value="${p.leg}">${p.leg} - ${p.nombre}</option>`).join('');}
+function setTab(t){const e=t==='ent';
+  document.getElementById('tEnt').classList.toggle('on',e);document.getElementById('tRet').classList.toggle('on',!e);
+  document.getElementById('tRet').classList.toggle('ret',!e);
+  document.getElementById('paneEnt').classList.toggle('hidden',!e);document.getElementById('paneRet').classList.toggle('hidden',e);
+  document.getElementById('hBadge').textContent=e?'ENTRADA':'RETIRO';}
+function renderEnt(){document.getElementById('listEnt').innerHTML=ENT.map(x=>
+  `<div class="li"><span>${x.f} · <b>${x.art}</b></span><span class="mut">${x.cant.toLocaleString('es-AR')} u.</span></div>`).join('')||'<div class="li mut">Sin entradas</div>';}
+function renderRet(){document.getElementById('listRet').innerHTML=RET.map(x=>
+  `<div class="li"><span>${x.f} · <b>${x.art}</b></span><span class="mut">${x.cant.toLocaleString('es-AR')} u. · leg ${x.leg||'—'}</span></div>`).join('')||'<div class="li mut">Sin retiros</div>';}
+async function addEnt(){const a=document.getElementById('eArt').value,c=+document.getElementById('eCant').value;
+  if(!a||!(c>0)){alert('Elegí artículo y cantidad');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const fecha=document.getElementById('eFecha').value;
+  const r=await apiPost({action:'append',sheet:'Entrada Varios',data:{'Fecha':fecha,'Artículo':a,'Cantidad':c}});
+  if(r&&r.ok){ENT.unshift({f:fdate(fecha),art:a,cant:c});document.getElementById('eCant').value='';renderEnt();}
+  else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
+async function addRet(){const a=document.getElementById('rArt').value,c=+document.getElementById('rCant').value,l=document.getElementById('rLeg').value;
+  if(!a||!(c>0)){alert('Elegí artículo y cantidad');return;}
+  if(!l){alert('Elegí el legajo de quien retira');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const fecha=document.getElementById('rFecha').value;
+  const r=await apiPost({action:'append',sheet:'Retiro Varios',data:{'Fecha':fecha,'Artículo':a,'Cantidad':c,'Legajo':l}});
+  if(r&&r.ok){RET.unshift({f:fdate(fecha),art:a,cant:c,leg:l});document.getElementById('rCant').value='';renderRet();}
+  else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
+
+async function init(){
+  const hd=document.querySelector('header .date'); if(hd) hd.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+  document.getElementById('eFecha').value=todayISO(); document.getElementById('rFecha').value=todayISO();
+  if(apiListo()){
+    try{
+      const [cv,cp,ent,ret]=await Promise.all([
+        apiGet({action:'read',sheet:'Cat Varios'}),
+        apiGet({action:'read',sheet:'Cat Personal'}),
+        apiGet({action:'read',sheet:'Entrada Varios'}),
+        apiGet({action:'read',sheet:'Retiro Varios'})]);
+      ART=(cv||[]).map(r=>r['Artículo']).filter(Boolean);
+      PERS=(cp||[]).map(r=>({leg:r['Legajo'],nombre:r['Nombre']})).filter(p=>p.leg||p.nombre);
+      ENT=(ent||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),art:r['Artículo'],cant:+r['Cantidad']||0}));
+      RET=(ret||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),art:r['Artículo'],cant:+r['Cantidad']||0,leg:r['Legajo']}));
+    }catch(e){}
+  }
+  fillArt('eArt');fillArt('rArt');fillLeg();renderEnt();renderRet();
+}
+init();
+</script>
+</body>
+</html>
