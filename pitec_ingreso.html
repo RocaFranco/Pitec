@@ -20,7 +20,7 @@
 </head>
 <body>
 <header>
-  <h1>PITEC · <b>INGRESO DE BOBINAS</b></h1>
+  <h1>PITEC · <b>REINGRESO DE BOBINAS</b></h1>
   <span class="badge green" id="modeLbl">Reingreso</span>
   <span class="date" id="hoy"></span>
 </header>
@@ -60,7 +60,7 @@
 <footer id="ftEx" class="hidden"><button class="save" id="btnEx" onclick="guardarExterna()" disabled>GUARDAR BOBINA EXTERNA</button></footer>
 
 <script>
-document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
 let PROV=[{nombre:'Navegante',pref:'NAV'},{nombre:'Envaplast',pref:'ENV'}];
 let prov=null, reOk=null;
 const prefijo=n=>n.trim().toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);

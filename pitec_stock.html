@@ -29,7 +29,7 @@
   <div id="grupos"><div class="loading">Calculando stock desde el Sheet…</div></div>
 </main>
 <script>
-document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
 const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
 const fmt=n=>Math.round(n).toLocaleString('es-AR');
 // colores de planta por formato

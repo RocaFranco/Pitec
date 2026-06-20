@@ -50,7 +50,7 @@
   </div>
 </main>
 <script>
-document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const M3=MESES.map(m=>m.slice(0,3));
 // columnas graficables (key del registro, etiqueta, tipo, color)
