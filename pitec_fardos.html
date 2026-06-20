@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Fardos</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:110px}
+  .li.head{background:var(--card2);font-weight:700;color:var(--mut);font-size:11px;text-transform:uppercase}
+  .chkrow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line);font-size:13px;cursor:pointer}
+  .chkrow input{width:20px;height:20px}
+  .chkrow .cod{font-weight:700;color:var(--acc-d)}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>FARDOS</b></h1>
+  <span class="badge green">DESPERDICIO</span>
+  <span class="date">Mié 18/06</span>
+</header>
+
+<main id="vHoy">
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="big" style="flex:1;min-width:160px;text-align:center" onclick="openFardo()">＋ Registrar fardo</button>
+    <button class="big" style="flex:1;min-width:160px;text-align:center;background:var(--acc2)" onclick="goEntregar()">🚚 Entregar fardos</button>
+  </div>
+  <h3 class="sec" style="margin-top:16px">Fardos en planta (sin entregar)</h3>
+  <div class="listbox">
+    <div class="li head"><span style="width:140px">Pallet</span><span style="flex:1">Material</span><span style="width:90px;text-align:right">Kg neto</span></div>
+    <div id="enPlanta"></div></div>
+</main>
+
+<!-- ENTREGAR -->
+<main id="vEnt" class="hidden">
+  <div class="step"><div class="lbl"><span class="num">1</span>TILDÁ LOS FARDOS QUE SE VAN</div>
+    <div id="chkList"></div></div>
+  <div class="step"><div class="lbl"><span class="num">2</span>DESTINO Y FECHA</div>
+    <div class="num2"><div class="f"><select id="dest"><option>Alta Plástica</option><option>Navegante</option><option>Álamo</option></select></div>
+      <div class="f"><input type="date" id="fEnt"></div></div>
+    <div style="margin-top:10px;font-weight:700">Total seleccionado: <span id="selTot" style="color:var(--acc-d)">0 kg</span></div></div>
+</main>
+
+<footer id="ftHoy"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Registrá fardos o entregá los que hay</span></footer>
+<footer id="ftEnt" class="hidden"><button class="ghost" onclick="goHoy()">✕</button><button class="save" id="btnGen" onclick="generar()" disabled>GENERAR FICHA DE ENTREGA</button></footer>
+
+<!-- MODAL REGISTRAR -->
+<div class="ov" id="ov" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet">
+  <button class="modalX" onclick="this.closest('.ov').classList.remove('on')">✕</button>
+  <h3>Registrar fardo</h3><div class="hint">El código y el kg neto (bruto − 20 del pallet) salen solos.</div>
+  <div style="padding:0 16px 8px">
+    <div class="lbl" style="font-size:12px;color:var(--mut);margin-bottom:8px">Tipo de material</div>
+    <div class="opts" id="tipos" style="margin-bottom:12px"></div>
+    <input type="number" id="bruto" placeholder="Kg bruto (con pallet)" oninput="netoPrev()">
+    <div class="calc" style="margin-top:10px"><span>Kg neto: <b id="netoP">—</b></span></div>
+  </div><button class="done" onclick="addFardo()">GUARDAR FARDO</button>
+</div></div>
+
+<script src="pitec_api.js"></script>
+<script>
+const TIPOS=['Hilo Blanco','Hilo Cristal','Scrap Laminadora'];
+let tipo=null;
+let PALLETS=[
+ {cod:'FARDO-2606-01',mat:'Cristal',neto:649},
+ {cod:'FARDO-2606-02',mat:'Cristal',neto:589},
+ {cod:'FARDO-2606-03',mat:'Malo con Carbonato',neto:610},
+];
+let seq=3, sel=new Set();
+function renderPlanta(){document.getElementById('enPlanta').innerHTML=PALLETS.map(p=>
+  `<div class="li"><span style="width:140px" class="cod">${p.cod}</span><span style="flex:1">${p.mat}</span><span style="width:90px;text-align:right">${p.neto} kg</span></div>`).join('')
+  ||'<div class="li mut">No hay fardos en planta</div>';}
+function openFardo(){tipo=null;document.getElementById('tipos').innerHTML=TIPOS.map(t=>`<div class="opt" data-t="${t}" onclick="pTipo('${t}')">${t}</div>`).join('');
+  document.getElementById('bruto').value='';document.getElementById('netoP').textContent='—';document.getElementById('ov').classList.add('on');}
+function pTipo(t){tipo=t;document.querySelectorAll('#tipos .opt').forEach(o=>o.classList.toggle('sel',o.dataset.t===t));}
+function netoPrev(){const b=+document.getElementById('bruto').value;document.getElementById('netoP').textContent=b>20?(b-20)+' kg':'—';}
+async function addFardo(){const b=+document.getElementById('bruto').value;if(!tipo||!(b>20)){alert('Elegí material y kg bruto');return;}
+  if(!apiListo()){alert('Sin conexión');return;}
+  const r=await apiPost({action:'guardarfardo',data:{'Fecha':new Date().toISOString().slice(0,10),'Tipo Material':tipo,'Kg Bruto':b,'Kg Neto':b-20}});
+  if(r&&r.ok){PALLETS.push({cod:r.codigo,mat:tipo,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
+  else alert('No se pudo: '+((r&&r.error)||'error'));}
+async function cargarPlanta(){
+  if(!apiListo())return;
+  try{const f=await apiGet({action:'read',sheet:'Fardos'});
+    PALLETS=f.filter(r=>String(r['Estado']||'').toLowerCase()==='en planta').map(r=>({cod:r['Código Pallet'],mat:r['Tipo Material'],neto:Number(r['Kg Neto'])||0}));
+    renderPlanta();}catch(e){}}
+function goEntregar(){if(!PALLETS.length){alert('No hay fardos para entregar');return;}sel.clear();
+  document.getElementById('chkList').innerHTML=PALLETS.map((p,i)=>
+   `<label class="chkrow"><input type="checkbox" onchange="toggle(${i},this.checked)"><span class="cod">${p.cod}</span><span style="flex:1">${p.mat}</span><span class="mut">${p.neto} kg</span></label>`).join('');
+  document.getElementById('vHoy').classList.add('hidden');document.getElementById('vEnt').classList.remove('hidden');
+  document.getElementById('ftHoy').classList.add('hidden');document.getElementById('ftEnt').classList.remove('hidden');updSel();}
+function toggle(i,on){on?sel.add(i):sel.delete(i);updSel();}
+function updSel(){let t=0;sel.forEach(i=>t+=PALLETS[i].neto);document.getElementById('selTot').textContent=t+' kg';
+  document.getElementById('btnGen').disabled=sel.size===0;}
+function goHoy(){document.getElementById('vEnt').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
+  document.getElementById('ftEnt').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');}
+async function generar(){
+  if(!apiListo()){alert('Sin conexión');return;}
+  const pallets=[...sel].map(i=>PALLETS[i].cod);
+  const r=await apiPost({action:'entregarfardos',pallets,destino:document.getElementById('dest').value,fecha:document.getElementById('fEnt').value});
+  if(r&&r.ok){alert('Ficha '+r.ficha+' generada ✔\n'+pallets.length+' fardos → '+document.getElementById('dest').value);
+    PALLETS=PALLETS.filter((_,i)=>!sel.has(i));goHoy();renderPlanta();}
+  else alert('No se pudo: '+((r&&r.error)||'error'));}
+renderPlanta();cargarPlanta();
+</script>
+</body>
+</html>

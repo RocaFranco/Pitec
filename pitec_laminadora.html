@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Laminadora</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:110px}
+  .madreCard{background:#eaf2ff;border:1px solid #c4dbff;border-radius:14px;padding:18px;cursor:pointer;box-shadow:var(--shadow)}
+  .madreCard .cod{font-size:26px;font-weight:800;color:var(--acc-d)}
+  .madreCard .meta{color:var(--mut);font-size:13px;margin-top:4px}
+  .madreCard .go{margin-top:12px;color:var(--acc-d);font-weight:700;font-size:14px}
+  .listbox{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .listbox .lh{background:var(--card2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between;align-items:center}
+  .li{padding:11px 14px;border-top:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;gap:10px}
+  .li .cod{font-weight:700;color:var(--acc-d)}
+  .li .mut{color:var(--mut)}
+  .addbtn{background:#eaf6ef;border:1px dashed #bfe6cf;color:var(--acc2-d);font-weight:700;padding:12px;border-radius:11px;cursor:pointer;text-align:center;font-size:14px;width:100%}
+  .addbtn:hover{background:#dff0e7}
+  .okmsg{color:var(--ok)}
+  .stockOk{color:var(--acc2-d);font-weight:600;font-size:13px;margin-top:6px}
+  .stockBad{color:var(--bad);font-weight:600;font-size:13px;margin-top:6px}
+  .matrow{display:grid;grid-template-columns:110px 1fr 110px;gap:8px;align-items:center;margin-bottom:8px}
+  .matrow .ml{font-weight:700;color:var(--acc-d);font-size:14px}
+  .matrow select,.matrow input{padding:10px;font-size:14px}
+  .matrow .nocode{color:var(--mut);font-size:13px;align-self:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b id="hTitle">LAMINADORA</b></h1>
+  <span class="badge" id="hBadge">HOY</span>
+  <span class="date">Mié 18/06</span>
+</header>
+
+<!-- HOY -->
+<main id="vHoy">
+  <div id="hoyMadre"></div>
+  <h3 class="sec">Hijas terminadas hoy</h3>
+  <div class="listbox"><div class="lh">Bobinas laminadas</div><div id="hoyHijas"></div></div>
+</main>
+
+<!-- PONER MADRE -->
+<main id="vPoner" class="hidden">
+  <div class="step"><div class="lbl"><span class="num">1</span>CÓDIGO BOBINA MADRE (convencional)</div>
+    <input type="text" id="madreCod" placeholder="Ej: E459" oninput="chkStock()" style="text-transform:uppercase">
+    <div id="stockMsg"></div></div>
+  <div class="step"><div class="lbl"><span class="num">2</span>TURNO</div>
+    <div class="opts"><div class="opt" data-tu="Día" onclick="pTurno('Día')">Mañana / Día</div>
+      <div class="opt" data-tu="Noche" onclick="pTurno('Noche')">Tarde / Noche</div></div></div>
+  <div class="step"><div class="lbl"><span class="num">3</span>COLOR DE LAMINADO</div>
+    <div class="opts"><div class="opt" data-col="Cristal" onclick="pColor('Cristal')">Cristal</div>
+      <div class="opt" data-col="Blanco" onclick="pColor('Blanco')">Blanco</div></div></div>
+  <div class="step"><div class="lbl"><span class="num">4</span>LADOS</div>
+    <div class="opts"><div class="opt" data-l="1" onclick="pLados(1)">1</div>
+      <div class="opt" data-l="2" onclick="pLados(2)">2</div></div></div>
+  <div class="step"><div class="lbl"><span class="num">5</span>LEGAJOS Y VELOCIDADES</div>
+    <div class="num2"><div class="f"><input type="number" id="pl1" placeholder="Legajo 1"></div>
+      <div class="f"><input type="number" id="pl2" placeholder="Legajo 2"></div></div>
+    <div class="num2" style="margin-top:10px">
+      <div class="f"><input type="text" id="pExt" placeholder="Vel. Extruder A/B"></div>
+      <div class="f"><input type="text" id="pLam" placeholder="Vel. Laminated A/B"></div>
+      <div class="f"><input type="text" id="pWin" placeholder="Vel. Winding"></div></div></div>
+</main>
+
+<!-- MADRE EN CURSO -->
+<main id="vMadre" class="hidden">
+  <div class="step" id="madreHead"></div>
+  <div class="listbox" style="margin-bottom:6px">
+    <div class="lh">Bobinas hijas <span id="hijasCount" class="mut"></span></div>
+    <div id="hijasList"></div>
+  </div>
+  <button class="addbtn" onclick="openHija()">＋ SACAR HIJA</button>
+  <div style="height:14px"></div>
+  <h3 class="sec">Material agregado (grumo de esta madre)</h3>
+  <div id="matRows"></div>
+  <h3 class="sec">Desperdicio</h3>
+  <div id="despRows"></div>
+</main>
+
+<!-- FOOTERS -->
+<footer id="ftHoy"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Poné una bobina o seguí la que está en máquina</span></footer>
+<footer id="ftPoner" class="hidden"><button class="ghost" onclick="goHoy()">✕</button><button class="save" id="btnAbrir" onclick="abrirMadre()" disabled>ABRIR MADRE</button></footer>
+<footer id="ftMadre" class="hidden"><button class="ghost" onclick="goHoy()">‹ Inicio</button><button class="save" onclick="cerrarMadre()" style="background:var(--acc2)">CERRAR MADRE</button></footer>
+
+<!-- MODAL SACAR HIJA -->
+<div class="ov" id="ovHija" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet">
+  <button class="modalX" onclick="this.closest('.ov').classList.remove('on')">✕</button>
+  <h3>Sacar bobina hija</h3><div class="hint" id="hijaCodPrev"></div>
+  <div style="padding:0 16px 8px"><div class="num2">
+    <div class="f"><input type="number" id="hMts" placeholder="Metros reales" oninput="hijaCalc()"></div>
+    <div class="f"><input type="number" id="hKg" placeholder="Kg" oninput="hijaCalc()"></div></div>
+    <div class="calc" style="margin-top:12px"><span>Gr promedio: <b id="hGr">—</b></span><span>Kg agregados: <b id="hAgr">—</b></span></div>
+  </div>
+  <button class="done" onclick="addHija()">GUARDAR HIJA</button>
+</div></div>
+
+<script src="pitec_api.js"></script>
+<script src="pitec_datos.js"></script>
+<script>
+// grumo consumido (con código): [etiqueta, categoría catálogo, columnas Sheet]
+const MAT_LAM=[
+  ['PP','PP',['Código PP','Kg PP']],
+  ['PE','PE',['Código PE','Kg PE']],
+  ['Master','Master',['Código Master','Kg Master']],
+  ['Reciclado','Recuperado',['Código Reciclado','Kg Reciclado']],
+];
+// desperdicio (solo kg, sin código — NO es consumo de material): [etiqueta, columna Sheet]
+const DESP_LAM=[ ['Purgado','Kg Purgados'], ['Empalme','Kg Empalmes'] ];
+let madre=null, color=null, lados=null, turno=null, madreInfo=null, chkTimer=null;
+function renderMatRows(){
+  document.getElementById('matRows').innerHTML=MAT_LAM.map((m,i)=>
+    `<div class="matrow"><div class="ml">${m[0]}</div><select id="lmc${i}">${mpOptions(m[1],'Laminadora')}</select><input type="number" id="lmk${i}" placeholder="Kg"></div>`).join('');
+  document.getElementById('despRows').innerHTML=DESP_LAM.map((m,i)=>
+    `<div class="matrow"><div class="ml">${m[0]}</div><div class="nocode">(desperdicio)</div><input type="number" id="ldk${i}" placeholder="Kg"></div>`).join('');
+}
+let HOY_HIJAS=[];
+const fechaHdr=document.querySelector('header .date'); if(fechaHdr) fechaHdr.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
+
+function renderHoy(){
+  const c=document.getElementById('hoyMadre');
+  if(madre){
+    c.innerHTML=`<div class="madreCard" onclick="goMadre()">
+      <div style="font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">Bobina en la máquina ahora</div>
+      <div class="cod">${madre.cod}</div>
+      <div class="meta">${madre.fmt} · ${color} · ${lados} lados · ${madre.hijas.length} hijas · ${madre.hijas.reduce((a,h)=>a+h.kg,0)} kg</div>
+      <div class="go">▶ Tocar para sacar hija / cargar material</div></div>`;
+  }else{
+    c.innerHTML=`<button class="big" onclick="goPoner()">＋  PONER BOBINA MADRE</button>`;
+  }
+  document.getElementById('hoyHijas').innerHTML=HOY_HIJAS.map(h=>
+    `<div class="li"><span class="cod">${h.cod}</span><span class="mut">${h.mts.toLocaleString()} m · ${h.kg} kg</span></div>`).join('')||'<div class="li mut">Sin hijas hoy</div>';
+}
+function chkStock(){
+  const v=document.getElementById('madreCod').value.trim().toUpperCase();
+  const m=document.getElementById('stockMsg');
+  madreInfo=null; chkAbrir();
+  if(!v){m.innerHTML='';return;}
+  m.innerHTML='<div class="mut" style="font-size:13px">Buscando…</div>';
+  clearTimeout(chkTimer);
+  chkTimer=setTimeout(async()=>{
+    let r; try{ r=await apiGet({action:'bobina',cod:v}); }catch(e){ m.innerHTML='<div class="stockBad">⚠ Sin conexión al Sheet</div>'; return; }
+    if(document.getElementById('madreCod').value.trim().toUpperCase()!==v) return; // cambió mientras buscaba
+    if(!r||!r.existe){ m.innerHTML='<div class="stockBad">⚠ Ese código NO existe</div>'; madreInfo=null; }
+    else if(!r.enStock){ m.innerHTML='<div class="stockBad">⚠ Existe pero NO está en stock (ya se laminó o salió)</div>'; madreInfo=null; }
+    else{ madreInfo={cod:v,fmt:Number(r.fmt),gr:Number(r.gramaje),mts:Number(r.mts),kg:Number(r.kg),cat:r.cat};
+      m.innerHTML=`<div class="stockOk">✓ En stock — Fto ${r.fmt} · ${r.cat||''} · ${Number(r.mts).toLocaleString('es-AR')} m · ${Number(r.kg).toLocaleString('es-AR')} kg · gr ${r.gramaje}</div>`; }
+    chkAbrir();
+  },350);
+}
+function pTurno(t){turno=t;document.querySelectorAll('[data-tu]').forEach(o=>o.classList.toggle('sel',o.dataset.tu===t));chkAbrir();}
+function pColor(c){color=c;document.querySelectorAll('[data-col]').forEach(o=>o.classList.toggle('sel',o.dataset.col===c));chkAbrir();}
+function pLados(l){lados=l;document.querySelectorAll('[data-l]').forEach(o=>o.classList.toggle('sel',+o.dataset.l===l));chkAbrir();}
+function chkAbrir(){
+  document.getElementById('btnAbrir').disabled=!(madreInfo&&color&&lados&&turno);
+}
+function abrirMadre(){
+  if(!madreInfo){alert('Primero poné un código de bobina en stock');return;}
+  madre={cod:madreInfo.cod,fmt:madreInfo.fmt,gr:madreInfo.gr,mts:madreInfo.mts,kg:madreInfo.kg,cat:madreInfo.cat,turno:turno,hijas:[],
+    leg1:document.getElementById('pl1').value, leg2:document.getElementById('pl2').value,
+    vExt:document.getElementById('pExt').value, vLam:document.getElementById('pLam').value, vWin:document.getElementById('pWin').value};
+  renderMatRows(); goMadre();renderHoy();
+}
+function renderMadre(){
+  document.getElementById('madreHead').innerHTML=
+    `<div style="font-size:12px;color:var(--mut)">MADRE</div>
+     <div style="font-size:22px;font-weight:800;color:var(--acc-d)">${madre.cod}</div>
+     <div style="color:var(--mut);font-size:13px;margin-top:3px">${madre.fmt} · ${color} · ${lados} lados · origen ${madre.mts.toLocaleString()} m / ${madre.kg} kg</div>`;
+  document.getElementById('hijasCount').textContent=madre.hijas.length?`(${madre.hijas.length})`:'';
+  document.getElementById('hijasList').innerHTML=madre.hijas.map(h=>
+    `<div class="li"><span class="cod">${h.cod}</span><span class="mut">${h.mts} m · ${h.kg} kg · +${h.agr} kg agreg.</span></div>`).join('')||'<div class="li mut">Todavía sin hijas</div>';
+}
+function openHija(){
+  const n=madre.hijas.length+1;
+  document.getElementById('hijaCodPrev').textContent='Código automático: L-'+madre.cod+'/'+n;
+  document.getElementById('hMts').value='';document.getElementById('hKg').value='';
+  document.getElementById('hGr').textContent='—';document.getElementById('hAgr').textContent='—';
+  document.getElementById('ovHija').classList.add('on');
+}
+function hijaCalc(){
+  const m=+document.getElementById('hMts').value,k=+document.getElementById('hKg').value;
+  if(m>0&&k>0){const K=madre.fmt<=60?2:1;const g=(k*1000)/(m*(madre.fmt+0.6)*K)*100;
+    document.getElementById('hGr').textContent=g.toFixed(1)+' gr/m²';
+    document.getElementById('hAgr').textContent=((g-madre.gr)*m*madre.fmt*K/100/1000).toFixed(1)+' kg';}
+}
+function addHija(){
+  const m=+document.getElementById('hMts').value,k=+document.getElementById('hKg').value;
+  if(!(m>0&&k>0)){alert('Completá metros y kg');return;}
+  const n=madre.hijas.length+1;const K=madre.fmt<=60?2:1;const g=(k*1000)/(m*(madre.fmt+0.6)*K)*100;
+  madre.hijas.push({cod:'L-'+madre.cod+'/'+n,mts:m,kg:k,gr:+g.toFixed(2),grAgr:+(g-madre.gr).toFixed(2),
+    agr:+((g-madre.gr)*m*madre.fmt*K/100/1000).toFixed(1)});
+  document.getElementById('ovHija').classList.remove('on');renderMadre();
+}
+/* columnas de material para la 1ª hija: lee las filas fijas del form y mapea a las columnas del Sheet */
+function matCols(){
+  const o={'Código PP':'','Kg PP':'','Código PE':'','Kg PE':'','Código Master':'','Kg Master':'','Código Reciclado':'','Kg Reciclado':'','Kg Purgados':'','Kg Empalmes':''};
+  MAT_LAM.forEach((m,i)=>{ const cols=m[2];
+    const cEl=document.getElementById('lmc'+i); const cod=cEl?cEl.value:''; if(cod)o[cols[0]]=cod;
+    const kgEl=document.getElementById('lmk'+i); const kg=kgEl?+kgEl.value:0; if(kg)o[cols[1]]=kg;
+  });
+  DESP_LAM.forEach((m,i)=>{ const kgEl=document.getElementById('ldk'+i); const kg=kgEl?+kgEl.value:0; if(kg)o[m[1]]=kg; });
+  return o;
+}
+async function cerrarMadre(){
+  if(!madre.hijas.length){alert('No sacaste ninguna hija todavía');return;}
+  const btn=document.querySelector('#ftMadre .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    const fecha=todayISO();
+    for(let i=0;i<madre.hijas.length;i++){
+      const h=madre.hijas[i];
+      const data={'Código Madre':madre.cod,'Fecha':fecha,'Turno':madre.turno,'Legajo 1':madre.leg1,'Legajo 2':madre.leg2,'Color':color,'Lados':lados,
+        'Metros Reales':h.mts,'Kg Laminados':h.kg,'Gr Promedio':h.gr,'Gr Agregado':h.grAgr,'Kg Agregados':h.agr,
+        'Vel Extruder A/B':madre.vExt,'Vel Laminated A/B':madre.vLam,'Vel Winding':madre.vWin,'Estado':'Stock','Observaciones':''};
+      if(i===0) Object.assign(data,matCols());
+      const r=await apiPost({action:'guardarhija',data}); if(r&&r.error) throw r.error;
+    }
+    const rc=await apiPost({action:'cerrarmadre',madre:madre.cod}); if(rc&&rc.error) throw rc.error;
+    alert('Madre '+madre.cod+' cerrada ✔  ('+madre.hijas.length+' hijas)');
+    madre=null;color=null;lados=null;turno=null;goHoy();
+  }catch(e){ alert('Error guardando: '+e); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+// navegación
+function show(v){['vHoy','vPoner','vMadre'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==v));
+  ['ftHoy','ftPoner','ftMadre'].forEach(x=>document.getElementById(x).classList.add('hidden'));}
+async function loadHoyHijas(){
+  try{ const lam=await apiGet({action:'read',sheet:'Laminadora'});
+    HOY_HIJAS=(lam||[]).filter(r=>esHoy(r['Fecha'])).map(r=>({cod:r['Código Hija'],mts:+r['Metros Reales']||0,kg:+r['Kg Laminados']||0}));
+  }catch(e){ HOY_HIJAS=[]; }
+  renderHoy();
+}
+function goHoy(){show('vHoy');document.getElementById('ftHoy').classList.remove('hidden');document.getElementById('hBadge').textContent='HOY';renderHoy();loadHoyHijas();}
+function goPoner(){document.getElementById('madreCod').value='';document.getElementById('stockMsg').innerHTML='';color=null;lados=null;turno=null;madreInfo=null;
+  document.querySelectorAll('#vPoner .opt').forEach(o=>o.classList.remove('sel'));
+  show('vPoner');document.getElementById('ftPoner').classList.remove('hidden');document.getElementById('hBadge').textContent='PONER MADRE';chkAbrir();}
+function goMadre(){show('vMadre');document.getElementById('ftMadre').classList.remove('hidden');document.getElementById('hBadge').textContent='EN MÁQUINA';renderMadre();}
+goHoy();
+</script>
+</body>
+</html>

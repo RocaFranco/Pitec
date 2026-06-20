@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Stock</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<script src="pitec_api.js"></script>
+<style>
+  main{padding-bottom:30px;max-width:none;width:auto;margin:18px 20px}
+  .tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:6px}
+  .tot .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .tot .v{font-size:26px;font-weight:800;color:var(--acc-d)} .tot .l{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+  .grp{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .grp>h3{background:var(--card2);padding:11px 16px;font-size:15px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+  .grp>h3 .s{color:var(--mut);font-weight:600;font-size:13px}
+  .loading{color:var(--mut);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>STOCK</b></h1>
+  <span class="badge">DISPONIBLE</span>
+  <span class="date" id="hoy"></span>
+</header>
+<main>
+  <div class="tot" id="totales"></div>
+  <h3 class="sec">Stock de bobinas por categoría y formato</h3>
+  <div id="grupos"><div class="loading">Calculando stock desde el Sheet…</div></div>
+</main>
+<script>
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
+const fmt=n=>Math.round(n).toLocaleString('es-AR');
+// colores de planta por formato
+const COL={40:'#c79bc4',47:'#5b8fd6',53:'#b3b3b3',57:'#6aa84f',60:'#e83b3b',71:'#8a4b2a',82:'#e8923b',102:'#ec5ad0',120:'#f0d63a'};
+const txtC=hex=>{const c=hex.replace('#','');return (parseInt(c.substr(0,2),16)*299+parseInt(c.substr(2,2),16)*587+parseInt(c.substr(4,2),16)*114)/1000>150?'#222':'#fff';};
+async function cargar(){
+  if(!apiListo()){document.getElementById('grupos').innerHTML='<div class="loading">Sin conexión</div>';return;}
+  let tel,ent,lam,ext;
+  try{ [tel,ent,lam,ext]=await Promise.all([
+    apiGet({action:'read',sheet:'Telares'}),
+    apiGet({action:'read',sheet:'Entregas'}),
+    apiGet({action:'read',sheet:'Laminadora'}),
+    apiGet({action:'read',sheet:'Bobinas Externas'})]); }
+  catch(e){document.getElementById('grupos').innerHTML='<div class="loading">Error leyendo el Sheet</div>';return;}
+
+  const entregadas=new Set((ent||[]).map(r=>String(r['Código Bobina']).trim()));
+  const laminadas=new Set((lam||[]).map(r=>String(r['Código Madre']).trim()));
+  const enStock=(cod,est)=>{est=String(est||'').toLowerCase();return est.indexOf('entreg')<0&&est.indexOf('lamin')<0&&!entregadas.has(cod)&&!laminadas.has(cod);};
+  const madreFmt={}; (tel||[]).forEach(r=>madreFmt[String(r['Código Bobina']).trim()]=r['Formato']);
+
+  // stock = propias (Telares) + hijas laminadas no entregadas + externas
+  const stock=[];
+  (tel||[]).forEach(r=>{ if(enStock(String(r['Código Bobina']).trim(),r['Estado'])) stock.push({cat:r['Categoría']||'(sin cat.)',fmt:r['Formato']||'?',mts:num(r['Metros']),kg:num(r['Kg'])}); });
+  (lam||[]).forEach(r=>{ const cod=String(r['Código Hija']).trim(); if(cod && !entregadas.has(cod)) stock.push({cat:'Laminada',fmt:madreFmt[String(r['Código Madre']).trim()]||'?',mts:num(r['Metros Reales']),kg:num(r['Kg Laminados'])}); });
+  (ext||[]).forEach(r=>{ if(enStock(String(r['Código']).trim(),r['Estado'])) stock.push({cat:'Externa',fmt:r['Proveedor']||'—',mts:num(r['Metros']),kg:num(r['Kg'])}); });
+
+  const tk=stock.reduce((a,r)=>a+r.kg,0), tm=stock.reduce((a,r)=>a+r.mts,0);
+  document.getElementById('totales').innerHTML=`
+    <div class="kpi"><div class="v">${fmt(stock.length)}</div><div class="l">Bobinas en stock</div></div>
+    <div class="kpi"><div class="v">${fmt(tk)}</div><div class="l">Kg en stock</div></div>
+    <div class="kpi"><div class="v">${fmt(tm)}</div><div class="l">Metros en stock</div></div>`;
+
+  // agrupar por categoría → formato
+  const g={};
+  stock.forEach(r=>{ (g[r.cat]=g[r.cat]||{}); (g[r.cat][r.fmt]=g[r.cat][r.fmt]||{n:0,mts:0,kg:0});
+    g[r.cat][r.fmt].n++; g[r.cat][r.fmt].mts+=r.mts; g[r.cat][r.fmt].kg+=r.kg; });
+  const orden=['Para Laminar','Convencional','Laminada','Plana','Externa'];
+  const cats=Object.keys(g).sort((a,b)=>{const ia=orden.indexOf(a),ib=orden.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib);});
+  document.getElementById('grupos').innerHTML=cats.map(cat=>{
+    const fms=Object.entries(g[cat]).sort((a,b)=>Number(a[0])-Number(b[0]));
+    const subK=fms.reduce((a,[,v])=>a+v.kg,0), subN=fms.reduce((a,[,v])=>a+v.n,0);
+    return `<div class="grp" style="margin-bottom:12px"><h3>${cat} <span class="s">${subN} bobinas · ${fmt(subK)} kg</span></h3>
+      <table><thead><tr><th>Formato</th><th>Bobinas</th><th>Metros</th><th>Kg</th></tr></thead><tbody>${
+      fms.map(([f,v])=>{const c=COL[f]; const cell=c?`style="background:${c};color:${txtC(c)};border-radius:6px;padding:2px 10px;font-weight:800"`:'style="font-weight:800"';
+        return `<tr><td><span ${cell}>${f}</span></td><td>${v.n}</td><td>${fmt(v.mts)}</td><td>${fmt(v.kg)}</td></tr>`;}).join('')
+      }</tbody></table></div>`;
+  }).join('')||'<div class="loading">No hay bobinas en stock</div>';
+}
+cargar();
+</script>
+</body>
+</html>

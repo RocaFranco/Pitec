@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Reportes</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<script src="pitec_api.js"></script>
+<style>
+  main{padding-bottom:30px;max-width:none;width:auto;margin:18px 20px}
+  .matwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-bottom:14px}
+  table.mat{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  table.mat th,table.mat td{border:1px solid #e3e8f0;padding:7px 10px;text-align:right}
+  table.mat thead th{background:#f0f3f8;color:var(--mut);text-transform:uppercase;font-size:11px;position:sticky;top:0}
+  table.mat td.lab,table.mat th.lab{text-align:left;font-weight:700}
+  table.mat tr.yr td{background:#eef4ff;font-weight:800;color:var(--acc-d)}
+  .g-ok{color:#15803d;font-weight:700} .g-md{color:#92660a;font-weight:700} .g-bad{color:#b91c1c;font-weight:700}
+  .ctrls{display:flex;gap:10px;align-items:center;margin-bottom:14px}
+  .ctrls label{font-weight:700;color:var(--mut)}
+  .yrsel{font-size:15px;font-weight:700;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--txt);cursor:pointer}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .card h3{font-size:15px;margin-bottom:14px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .seg .b{background:#fff;border:1px solid var(--line);color:var(--txt);font-size:13px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer}
+  .seg .b.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .verbtn{background:var(--acc2);color:#fff;border:none;font-size:14px;font-weight:700;padding:10px 20px;border-radius:9px;cursor:pointer}
+  .verbtn:hover{filter:brightness(1.05)}
+  .chartbox{margin-top:14px}
+  .chartbox svg{width:100%;height:auto;display:block}
+  .loading{color:var(--mut);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>REPORTES</b></h1>
+  <span class="badge green">MENSUAL</span>
+  <span class="date" id="hoy"></span>
+</header>
+<main>
+  <div class="ctrls">
+    <label for="yrSel">Año:</label>
+    <select class="yrsel" id="yrSel" onchange="setYear(this.value)"></select>
+  </div>
+  <div class="matwrap"><div id="tabla" class="loading">Cargando…</div></div>
+  <div class="card">
+    <h3>Gráfico</h3>
+    <div style="color:var(--mut);font-weight:700;font-size:13px;margin-bottom:8px">Columna a graficar:</div>
+    <div class="seg" id="colSeg"></div>
+    <div class="chartbox" id="chart"></div>
+  </div>
+</main>
+<script>
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const M3=MESES.map(m=>m.slice(0,3));
+// columnas graficables (key del registro, etiqueta, tipo, color)
+const COLS=[
+  {k:'bobMts',lbl:'Bobinas Mts', kind:'num',col:'#2563eb'},
+  {k:'bobKg', lbl:'Bobinas Kg',  kind:'num',col:'#0891b2'},
+  {k:'lamAgr',lbl:'Laminado Kg', kind:'num',col:'#7c3aed'},
+  {k:'hilo',  lbl:'Conos Hilo Kg',kind:'num',col:'#d97706'},
+  {k:'recup', lbl:'Recuperado Kg',kind:'num',col:'#16a34a'},
+  {k:'desp',  lbl:'Desperdicio Kg',kind:'num',col:'#dc2626'},
+  {k:'pDes',  lbl:'% Desp',      kind:'pct',col:'#dc2626'},
+  {k:'pRec',  lbl:'% Recup',     kind:'pct',col:'#16a34a'},
+];
+let ALL=[], selYear='all', selCol='bobMts';
+// Histórico cargado a mano por Franco (2024-07 a 2025-10). De 2025-11 en adelante se calcula solo.
+const FIXED=[
+ {a:2024,mi:6,bobMts:632705,bobKg:32302,lamAgr:8839,hilo:42617,recup:3334,desp:319,pDes:0.0071,pRec:0.0744},
+ {a:2024,mi:7,bobMts:754261,bobKg:48520,lamAgr:2195,hilo:47702,recup:2556,desp:216,pDes:0.0040,pRec:0.0478},
+ {a:2024,mi:8,bobMts:540986,bobKg:31593,lamAgr:6038,hilo:39500,recup:2651,desp:224,pDes:0.0055,pRec:0.0654},
+ {a:2024,mi:9,bobMts:797631,bobKg:49818,lamAgr:9264,hilo:47584,recup:1980,desp:560,pDes:0.0091,pRec:0.0321},
+ {a:2024,mi:10,bobMts:664231,bobKg:38598,lamAgr:4571,hilo:35244,recup:1492,desp:1224,pDes:0.0267,pRec:0.0325},
+ {a:2024,mi:11,bobMts:681502,bobKg:38868,lamAgr:3121,hilo:34475,recup:1817,desp:302,pDes:0.0068,pRec:0.0412},
+ {a:2025,mi:0,bobMts:991381,bobKg:54394,lamAgr:7723,hilo:50497,recup:1789,desp:469,pDes:0.0072,pRec:0.0276},
+ {a:2025,mi:1,bobMts:745435,bobKg:39973,lamAgr:3937,hilo:39420,recup:2082,desp:862,pDes:0.0186,pRec:0.0450},
+ {a:2025,mi:2,bobMts:673417,bobKg:34627,lamAgr:3627,hilo:38539,recup:2904,desp:1011,pDes:0.0219,pRec:0.0630},
+ {a:2025,mi:3,bobMts:635767,bobKg:33895,lamAgr:10440,hilo:35613,recup:7751,desp:701,pDes:0.0139,pRec:0.1541},
+ {a:2025,mi:4,bobMts:753624,bobKg:44593,lamAgr:16361,hilo:66465,recup:4883,desp:525,pDes:0.0066,pRec:0.0612},
+ {a:2025,mi:5,bobMts:808346,bobKg:46194,lamAgr:11449,hilo:56886,recup:3912,desp:386,pDes:0.0060,pRec:0.0607},
+ {a:2025,mi:6,bobMts:812421,bobKg:45715,lamAgr:11317,hilo:47288,recup:3902,desp:496,pDes:0.0091,pRec:0.0712},
+ {a:2025,mi:7,bobMts:621771,bobKg:34782,lamAgr:0,hilo:46303,recup:2374,desp:80,pDes:0.0020,pRec:0.0585},
+ {a:2025,mi:8,bobMts:760901,bobKg:44963,lamAgr:0,hilo:43178,recup:2234,desp:165,pDes:0.0037,pRec:0.0504},
+ {a:2025,mi:9,bobMts:825423,bobKg:47277,lamAgr:0,hilo:40113,recup:2984,desp:125,pDes:0.0027,pRec:0.0638},
+];
+const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
+const fmt=n=>Math.round(n).toLocaleString('es-AR');
+const pct=x=>isFinite(x)&&x>0?(x*100).toFixed(2).replace('.',',')+'%':'0%';
+const sem=x=>x<0.02?'g-ok':(x<=0.05?'g-md':'g-bad');
+const mesIdx=d=>{const x=d?new Date(d):null;return (x&&!isNaN(x))?x.getMonth():-1;};
+const yearOf=d=>{const x=d?new Date(d):null;return (x&&!isNaN(x))?x.getFullYear():null;};
+
+async function init(){
+  if(!apiListo()){document.getElementById('tabla').innerHTML='<div class="loading">Sin conexión</div>';return;}
+  const [tel,h1,h2,lam,rec]=await Promise.all([
+    apiGet({action:'read',sheet:'Telares'}).catch(()=>[]),
+    apiGet({action:'read',sheet:'Hiladora 1'}).catch(()=>[]),
+    apiGet({action:'read',sheet:'Hiladora 2'}).catch(()=>[]),
+    apiGet({action:'read',sheet:'Laminadora'}).catch(()=>[]),
+    apiGet({action:'read',sheet:'Reciclado'}).catch(()=>[]) ]);
+
+  const M={}; // key "año|mi" -> agregados
+  const k=(a,mi)=>a+'|'+mi;
+  const add=(a,mi,campo,val)=>{ if(a==null||mi<0)return; const key=k(a,mi); (M[key]=M[key]||{a,mi,bobMts:0,bobKg:0,lamAgr:0,hilo:0,recup:0,desp:0,stock:0}); M[key][campo]+=val; };
+  (tel||[]).forEach(r=>{const a=yearOf(r['Fecha Hora Fin']),mi=mesIdx(r['Fecha Hora Fin']);add(a,mi,'bobMts',num(r['Metros']));add(a,mi,'bobKg',num(r['Kg']));});
+  (lam||[]).forEach(r=>{const a=yearOf(r['Fecha']),mi=mesIdx(r['Fecha']);add(a,mi,'lamAgr',num(r['Kg Agregados']));add(a,mi,'desp',num(r['Kg Purgados']));});
+  [h1,h2].forEach(hh=>(hh||[]).forEach(r=>{const a=yearOf(r['Fecha']),mi=mesIdx(r['Fecha']);add(a,mi,'hilo',num(r['Rack 1'])+num(r['Rack 2'])+num(r['Refile']));add(a,mi,'desp',num(r['Kg Purgado']));}));
+  (rec||[]).forEach(r=>{const a=Number(r['Año']),mi=MESES.indexOf(r['Mes']);
+    const recup=num(r['Hilo Trama'])+num(r['Hilo Urdimbre'])+num(r['Hilo Cristal'])+num(r['H1'])+num(r['Lámina H1'])+num(r['H2'])+num(r['Lámina H2'])+num(r['Refile Lam'])+num(r['Tela Lam']);
+    add(a,mi,'recup',recup); if(M[k(a,mi)])M[k(a,mi)].stock=num(r['Stock Hilo Racks']);});
+
+  const YMAX=new Date().getFullYear()+1;
+  const filas=Object.values(M).filter(x=>(x.bobKg||x.hilo||x.lamAgr||x.recup||x.desp)&&x.a>=2018&&x.a<=YMAX).sort((p,q)=>p.a-q.a||p.mi-q.mi);
+  // ΔStock = stock - stock mes anterior (cronológico)
+  let prevStock=null;
+  filas.forEach(f=>{ f.dStock = (prevStock==null)?0:(f.stock-prevStock); if(f.stock)prevStock=f.stock;
+    f.denom=f.bobKg+f.dStock+f.lamAgr+f.recup+f.desp;
+    f.pDes=f.denom>0?f.desp/f.denom:0; f.pRec=f.denom>0?f.recup/f.denom:0; });
+  // merge: histórico fijo (2024-07..2025-10) + lo calculado de ahí en adelante
+  const fkeys=new Set(FIXED.map(f=>f.a+'|'+f.mi));
+  const all=FIXED.concat(filas.filter(f=>!fkeys.has(f.a+'|'+f.mi))).sort((p,q)=>p.a-q.a||p.mi-q.mi);
+
+  ALL=all;
+  // selector de año (Todos + cada año presente)
+  const yrs=[...new Set(all.map(f=>f.a))].sort((a,b)=>a-b);
+  document.getElementById('yrSel').innerHTML=`<option value="all">Todos los años</option>`+yrs.map(y=>`<option value="${y}">${y}</option>`).join('');
+  // selector de columna
+  document.getElementById('colSeg').innerHTML=COLS.map(c=>`<button class="b${c.k===selCol?' on':''}" data-c="${c.k}" onclick="setCol('${c.k}')">${c.lbl}</button>`).join('');
+  renderTabla();
+  verGrafico();
+}
+function setYear(y){ selYear=y; renderTabla(); verGrafico(); }
+function setCol(k){ selCol=k; document.querySelectorAll('#colSeg .b').forEach(b=>b.classList.toggle('on',b.dataset.c===k)); verGrafico(); }
+
+function renderTabla(){
+  const rows = selYear==='all' ? ALL : ALL.filter(f=>String(f.a)===String(selYear));
+  if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin datos</div>';return;}
+  let h=`<table class="mat"><thead><tr><th class="lab">Año/Mes</th><th>Bobinas MTS</th><th>Bobinas KG</th><th>Laminado KG</th><th>Conos Hilo KG</th><th>Recuperado KG</th><th>Desperdicio KG</th><th>% Desp.</th><th>% Recup.</th></tr></thead><tbody>`;
+  let lastYr=null;
+  rows.forEach(f=>{
+    if(selYear==='all' && f.a!==lastYr){lastYr=f.a;h+=`<tr class="yr"><td class="lab">${f.a}</td><td colspan="8"></td></tr>`;}
+    h+=`<tr><td class="lab">${MESES[f.mi]}</td><td>${fmt(f.bobMts)}</td><td>${fmt(f.bobKg)}</td><td>${fmt(f.lamAgr)}</td><td>${fmt(f.hilo)}</td><td>${fmt(f.recup)}</td><td>${fmt(f.desp)}</td><td class="${sem(f.pDes)}">${pct(f.pDes)}</td><td>${pct(f.pRec)}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  document.getElementById('tabla').innerHTML=h;
+}
+
+function verGrafico(){
+  const c=COLS.find(x=>x.k===selCol);
+  let labels=[], values=[], titulo;
+  if(selYear==='all'){
+    ALL.forEach(f=>{ labels.push(M3[f.mi]+' '+String(f.a).slice(2)); values.push(f[selCol]); });
+    titulo=c.lbl+' — todos los años (mes a mes)';
+  }else{
+    const fy=ALL.filter(f=>String(f.a)===String(selYear)); const by={}; fy.forEach(f=>by[f.mi]=f[selCol]);
+    for(let i=0;i<12;i++){ labels.push(M3[i]); values.push(by[i]||0); }
+    titulo=c.lbl+' — '+selYear+' por mes';
+  }
+  document.getElementById('chart').innerHTML = buildSVG(labels,values,c,selYear==='all'?'line':'bar',titulo);
+}
+
+// motor de gráfico en SVG (sin librerías): barras verticales o línea
+function buildSVG(labels,values,col,tipo,titulo){
+  if(!values.some(v=>v>0)) return '<div class="loading">Sin datos para esa columna y año</div>';
+  const W=1000,H=380, mL=80,mR=20,mT=36,mB=54;
+  const pW=W-mL-mR, pH=H-mT-mB, baseY=mT+pH, N=values.length;
+  const vmax=Math.max(...values)*1.12 || 1;
+  const axfmt = col.kind==='pct' ? (x=>(x*100).toFixed(1).replace('.',',')+'%') : (x=> x>=1000?Math.round(x/1000)+'k':Math.round(x).toString());
+  const valfmt = col.kind==='pct' ? (x=>pct(x)) : (x=>fmt(x));
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,Segoe UI,sans-serif">`;
+  s+=`<text x="${mL}" y="20" font-size="15" font-weight="700" fill="#1b2533">${titulo}</text>`;
+  // grilla + eje Y
+  for(let t=0;t<=4;t++){ const yv=vmax*t/4, y=baseY-pH*t/4;
+    s+=`<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="#e7ecf3" stroke-width="1"/>`;
+    s+=`<text x="${mL-8}" y="${y+4}" font-size="12" fill="#6b7787" text-anchor="end">${axfmt(yv)}</text>`;
+  }
+  if(tipo==='bar'){
+    const step=pW/N, bw=Math.min(46,step*0.6);
+    values.forEach((v,i)=>{ const x=mL+step*(i+0.5), bh=v/vmax*pH, y=baseY-bh;
+      if(v>0){ s+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${col.col}"/>`;
+        s+=`<text x="${x.toFixed(1)}" y="${(y-5).toFixed(1)}" font-size="11" fill="#1b2533" text-anchor="middle">${valfmt(v)}</text>`; }
+      s+=`<text x="${x.toFixed(1)}" y="${baseY+18}" font-size="12" fill="#6b7787" text-anchor="middle">${labels[i]}</text>`;
+    });
+  }else{
+    const stepX = N>1? pW/(N-1) : pW/2;
+    const pts=values.map((v,i)=>[mL+(N>1?stepX*i:pW/2), baseY-(v/vmax*pH)]);
+    s+=`<polyline points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="${col.col}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    const everyX=Math.ceil(N/14);
+    pts.forEach((p,i)=>{ s+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${col.col}"/>`;
+      if(i%everyX===0) s+=`<text x="${p[0].toFixed(1)}" y="${baseY+18}" font-size="11" fill="#6b7787" text-anchor="middle" transform="rotate(0 ${p[0].toFixed(1)} ${baseY+18})">${labels[i]}</text>`;
+    });
+  }
+  s+='</svg>';
+  return s;
+}
+init();
+</script>
+</body>
+</html>

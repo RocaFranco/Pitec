@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Hiladoras</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:110px}
+  .machines{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mach{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;cursor:pointer;box-shadow:var(--shadow)}
+  .mach:hover{border-color:var(--acc)}
+  .mach .t{font-size:18px;font-weight:800;color:var(--acc-d)}
+  .mach .s{color:var(--mut);font-size:13px;margin-top:3px}
+  .mach .st{margin-top:12px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block}
+  .st.none{background:#eef1f6;color:var(--mut)} .st.draft{background:#fef3c7;color:#92660a} .st.done{background:#dcfce7;color:var(--acc2-d)}
+  .matbtn{width:100%;background:#eaf6ef;border:1px dashed #bfe6cf;color:var(--acc2-d);font-weight:800;padding:18px;border-radius:14px;cursor:pointer;font-size:15px;margin-top:14px}
+  .denier{display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px}
+  .denier .d{font-weight:800;color:var(--acc-d);text-align:center;background:#eaf2ff;border-radius:8px;padding:9px 0}
+  .denier input{padding:10px;font-size:14px}
+  .denier .hd{font-size:10px;color:var(--mut);text-transform:uppercase;text-align:center;font-weight:700}
+  .rack{display:grid;grid-template-columns:80px 1fr 1fr 90px;gap:8px;align-items:center;margin-bottom:9px}
+  .rack .rn{font-weight:700;font-size:13px}
+  .rack .neto{background:#eaf6ef;border:1px solid #bfe6cf;border-radius:9px;padding:10px;text-align:center;font-weight:800;color:var(--acc2-d);font-size:14px}
+  .matrow{display:grid;grid-template-columns:110px 1fr 110px;gap:8px;align-items:center;margin-bottom:8px}
+  .matrow .ml{font-weight:700;color:var(--acc-d);font-size:14px}
+  .matrow select,.matrow input{padding:10px;font-size:14px}
+  .listbox{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .listbox .lh{background:var(--card2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .li{padding:11px 14px;border-top:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;gap:10px}
+  .li .cod{font-weight:700;color:var(--acc-d)} .li .mut{color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b id="hTitle">HILADORAS</b></h1>
+  <span class="badge" id="hBadge">HOY</span>
+  <span class="date">Mié 18/06</span>
+</header>
+
+<!-- HOME -->
+<main id="vHome">
+  <div class="machines">
+    <div class="mach" onclick="goParte('H1')"><div class="t">HILADORA 1</div><div class="s">Urdimbre · denieres 81/44/80/99</div><div class="st none">Tocar para cargar el parte</div></div>
+    <div class="mach" onclick="goParte('H2')"><div class="t">HILADORA 2</div><div class="s">Trama · denieres 29/32/41/44</div><div class="st none">Tocar para cargar el parte</div></div>
+  </div>
+  <h3 class="sec" style="margin-top:18px">Partes cargados hoy</h3>
+  <div class="listbox" id="hoyBox"><div class="lh">Turnos guardados</div><div id="hoyList"><div class="li mut">Cargando…</div></div></div>
+</main>
+
+<!-- PARTE DE TURNO -->
+<main id="vParte" class="hidden">
+  <div class="step"><div class="lbl"><span class="num">1</span>TURNO Y LEGAJOS</div>
+    <div class="opts" style="margin-bottom:10px"><div class="opt" data-tu="Día" onclick="pTurno('Día')">Mañana / Día</div><div class="opt" data-tu="Noche" onclick="pTurno('Noche')">Tarde / Noche</div></div>
+    <div class="num2"><div class="f"><input type="number" id="leg1" placeholder="Legajo 1"></div><div class="f"><input type="number" id="leg2" placeholder="Legajo 2"></div></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">2</span>PARÁMETROS</div>
+    <div class="num2"><div class="f"><input type="number" id="caudal" placeholder="Vel. caudal"></div><div class="f"><input type="number" id="ancho" placeholder="Ancho mm"></div><div class="f"><input type="number" id="cuch" placeholder="Unidades cuchillas"></div></div>
+    <div class="num2" style="margin-top:10px"><div class="f"><input type="number" id="e1e" placeholder="1er Estir. Elev."></div><div class="f"><input type="number" id="e1t" placeholder="1er Estir. Tracc."></div>
+      <div class="f"><input type="number" id="e2" placeholder="2do Estir."></div><div class="f"><input type="number" id="e3" placeholder="3er Estir."></div></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">3</span>CALIDAD DEL HILO</div>
+    <div class="denier"><div></div><div class="hd">Medido</div><div class="hd">Estiram.</div><div class="hd">Dureza</div></div>
+    <div id="deniers"></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">4</span>SALIDA (bruto → neto automático)</div>
+    <div class="rack"><div></div><div class="hd" style="text-align:left">Bruto kg</div><div class="hd" style="text-align:left">Tiradas</div><div class="hd">Neto</div></div>
+    <div class="rack"><div class="rn">Rack 1</div><input type="number" id="r1b" placeholder="bruto" oninput="rackCalc(1)"><input type="number" id="r1t" placeholder="tiradas" oninput="rackCalc(1)"><div class="neto" id="r1n">—</div></div>
+    <div class="rack"><div class="rn">Rack 2</div><input type="number" id="r2b" placeholder="bruto" oninput="rackCalc(2)"><input type="number" id="r2t" placeholder="tiradas" oninput="rackCalc(2)"><div class="neto" id="r2n">—</div></div>
+    <div class="rack"><div class="rn">Refile</div><input type="number" id="r3b" placeholder="bruto" oninput="rackCalc(3)"><input type="number" id="r3t" placeholder="tiradas" oninput="rackCalc(3)"><div class="neto" id="r3n">—</div></div>
+    <div class="num2" style="margin-top:6px"><div class="f"><input type="number" id="hmalo" placeholder="Kg hilo malo"></div><div class="f"><input type="number" id="purg" placeholder="Kg purgado"></div></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">5</span>MATERIAL AGREGADO (grumo de esta máquina)</div>
+    <div id="matYa" class="mut" style="font-size:13px;margin-bottom:10px"></div>
+    <div class="hint" style="margin-bottom:8px">Cargá solo lo que agregás ahora. Se SUMA a lo de este turno.</div>
+    <div id="matRows"></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">6</span>OBSERVACIONES</div>
+    <input type="text" id="obs" placeholder="Opcional"></div>
+</main>
+
+<footer id="ftHome"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Elegí una máquina o cargá material</span></footer>
+<footer id="ftParte" class="hidden">
+  <button class="ghost" onclick="goHome()">‹ Inicio</button>
+  <button class="save" onclick="guardar()">CERRAR TURNO</button>
+</footer>
+
+<script src="pitec_api.js"></script>
+<script src="pitec_datos.js"></script>
+<script>
+const CONST={H1:{pc:0.1809,cpt:88,rv:127.53,cart:6,den:[81,44,80,99],tipo:'Urdimbre'},
+             H2:{pc:0.1799,cpt:88,rv:127.53,cart:6,den:[29,32,41,44],tipo:'Trama'}};
+// filas fijas de material: [etiqueta/columna del Sheet, categoría del catálogo]
+const MAT_HIL=[['Carbonato','Carbonato'],['Master','Master'],['PP','PP'],['Reciclado','Recuperado']];
+let maq=null, turno=null;
+const estados={H1:null,H2:null};   // guarda lo cargado de cada máquina (no se pierde al navegar)
+const fechaHdr=document.querySelector('header .date'); if(fechaHdr) fechaHdr.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
+const gv=id=>{const e=document.getElementById(id);return e?e.value:'';};
+const gn=id=>{const x=gv(id);return x===''?'':Number(x);};
+
+function renderMatRows(){
+  document.getElementById('matRows').innerHTML=MAT_HIL.map((m,i)=>
+   `<div class="matrow"><div class="ml">${m[0]}</div>
+      <select id="mc${i}">${mpOptions(m[1],'Hiladora')}</select>
+      <input type="number" id="mk${i}" placeholder="Kg"></div>`).join('');
+}
+function snapEstado(){ if(!maq)return; estados[maq]={turno, vals:[...document.querySelectorAll('#vParte input,#vParte select')].map(i=>i.value)}; }
+function loadEstado(){
+  const s=estados[maq];
+  const campos=[...document.querySelectorAll('#vParte input,#vParte select')];
+  if(!s){ turno=null; campos.forEach(i=>{ if(i.tagName==='SELECT') i.selectedIndex=0; else i.value=''; });
+    document.querySelectorAll('[data-tu]').forEach(o=>o.classList.remove('sel')); ['r1n','r2n','r3n'].forEach(x=>document.getElementById(x).textContent='—'); return; }
+  turno=s.turno;
+  s.vals.forEach((v,idx)=>{ if(campos[idx]) campos[idx].value=v; });
+  document.querySelectorAll('[data-tu]').forEach(o=>o.classList.toggle('sel',o.dataset.tu===turno));
+  rackCalc(1);rackCalc(2);rackCalc(3);
+}
+
+function neto(b,t){const c=CONST[maq];const n=b-c.rv-(t*c.cpt*c.pc)-c.cart;return n>0?n:0;}
+function netoVal(i){const b=+gv('r'+i+'b'),t=+gv('r'+i+'t');return (b>0&&t>0)?+neto(b,t).toFixed(1):'';}
+function rackCalc(i){const b=+gv('r'+i+'b'),t=+gv('r'+i+'t');
+  document.getElementById('r'+i+'n').textContent=(b>0&&t>0)?neto(b,t).toFixed(1):'—';}
+function pTurno(t){turno=t;document.querySelectorAll('[data-tu]').forEach(o=>o.classList.toggle('sel',o.dataset.tu===t));loadTurnoMat();}
+async function loadTurnoMat(){
+  const el=document.getElementById('matYa'); if(!el)return;
+  if(!turno){el.textContent='';return;}
+  el.textContent='Ya cargado este turno: …';
+  try{ const rows=await apiGet({action:'read',sheet:maq==='H2'?'Hiladora 2':'Hiladora 1'});
+    const r=(rows||[]).find(x=>esHoy(x['Fecha'])&&String(x['Turno']).trim()===turno);
+    if(!r){el.textContent='Ya cargado este turno: nada todavía';return;}
+    const t=['Carbonato','Master','PP','Reciclado'].map(c=>{const k=+r['Kg '+c]||0;return k?`${c} ${k.toLocaleString('es-AR')}kg`:null;}).filter(Boolean);
+    el.innerHTML='<b>Ya cargado este turno:</b> '+(t.length?t.join(' · '):'nada todavía');
+  }catch(e){ el.textContent=''; }
+}
+function renderDeniers(){const c=CONST[maq];
+  document.getElementById('deniers').innerHTML=c.den.map(d=>
+   `<div class="denier"><div class="d">${d}</div><input type="number" id="med${d}" placeholder="—"><input type="number" id="est${d}" placeholder="—"><input type="number" id="dur${d}" placeholder="—"></div>`).join('');}
+function goParte(m){maq=m;document.getElementById('hTitle').textContent=(m==='H1'?'HILADORA 1':'HILADORA 2')+' · '+CONST[m].tipo.toUpperCase();
+  renderDeniers(); loadEstado(); loadTurnoMat();   // restaura lo que tenía esa máquina (no borra)
+  document.getElementById('vHome').classList.add('hidden');document.getElementById('vParte').classList.remove('hidden');
+  document.getElementById('ftHome').classList.add('hidden');document.getElementById('ftParte').classList.remove('hidden');document.getElementById('hBadge').textContent='PARTE DE TURNO';}
+function goHome(){snapEstado();   // guarda lo cargado antes de salir
+  document.getElementById('hTitle').textContent='HILADORAS';
+  document.getElementById('vParte').classList.add('hidden');document.getElementById('vHome').classList.remove('hidden');
+  document.getElementById('ftParte').classList.add('hidden');document.getElementById('ftHome').classList.remove('hidden');document.getElementById('hBadge').textContent='HOY';
+  loadHoy();}
+async function guardar(){
+  if(!turno){alert('Elegí el turno');return;}
+  const c=CONST[maq];
+  const data={'Fecha':todayISO(),'Turno':turno,'Legajo 1':gn('leg1'),'Legajo 2':gn('leg2'),
+    'Vel Caudal':gn('caudal'),'Ancho mm':gn('ancho'),'Unidades Cuchillas':gn('cuch'),
+    '1er Estir Elevación':gn('e1e'),'1er Estir Tracción':gn('e1t'),'2do Estir':gn('e2'),'3er Estir':gn('e3'),
+    'Rack 1':netoVal(1),'Rack 2':netoVal(2),'Refile':netoVal(3),'Kg Hilo Malo':gn('hmalo'),'Kg Purgado':gn('purg'),
+    'Estado':'cerrado','Observaciones':gv('obs')};
+  c.den.forEach(d=>{ data['Medido '+d]=gn('med'+d); data['Estir '+d]=gn('est'+d); data['Dureza '+d]=gn('dur'+d); });
+  MAT_HIL.forEach((m,i)=>{ data['Código '+m[0]]=gv('mc'+i); data['Kg '+m[0]]=gn('mk'+i); });
+  const btn=document.querySelector('#ftParte .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
+  try{ const r=await apiPost({action:'guardarhilado',maq,data}); if(r&&r.error) throw r.error;
+    alert('Parte de '+(maq==='H1'?'Hiladora 1':'Hiladora 2')+' ('+turno+') guardado ✔');
+    estados[maq]=null; goHome();
+  }catch(e){ alert('Error guardando: '+e); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+async function loadHoy(){
+  const box=document.getElementById('hoyList');
+  try{ const [h1,h2]=await Promise.all([apiGet({action:'read',sheet:'Hiladora 1'}),apiGet({action:'read',sheet:'Hiladora 2'})]);
+    const rows=[]; (h1||[]).forEach(r=>{if(esHoy(r['Fecha']))rows.push({m:'H1',r});}); (h2||[]).forEach(r=>{if(esHoy(r['Fecha']))rows.push({m:'H2',r});});
+    box.innerHTML=rows.map(x=>{const neto=(+x.r['Rack 1']||0)+(+x.r['Rack 2']||0)+(+x.r['Refile']||0);
+      return `<div class="li"><span class="cod">${x.m==='H1'?'Hiladora 1':'Hiladora 2'} · ${x.r['Turno']||''}</span><span class="mut">${neto?neto.toLocaleString('es-AR')+' kg neto':''}</span></div>`;}).join('')||'<div class="li mut">Todavía no hay partes hoy</div>';
+  }catch(e){ box.innerHTML='<div class="li mut">Sin conexión</div>'; }
+}
+renderMatRows(); loadHoy();
+</script>
+</body>
+</html>

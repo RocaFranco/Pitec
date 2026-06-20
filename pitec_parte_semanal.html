@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Parte Semanal</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<script src="pitec_api.js"></script>
+<style>
+  #printArea{display:none}
+  @media print{
+    header,main,footer{display:none!important}
+    #printArea{display:block!important;padding:20px;color:#000}
+    #printArea h2{font-size:22px;margin-bottom:2px}
+    #printArea .meta{font-size:13px;color:#333;margin-bottom:14px}
+    #printArea h3{font-size:14px;margin:14px 0 4px;text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:2px}
+    #printArea table.pt{width:100%;border-collapse:collapse;margin-bottom:6px}
+    #printArea .pt th,#printArea .pt td{border:1px solid #999;padding:6px 9px;font-size:13px;text-align:left;vertical-align:top}
+    #printArea .pt th{background:#eee}
+    #printArea .pt .pp{font-weight:700;width:130px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>PARTE SEMANAL</b></h1>
+  <span class="badge">JEFE DE PRODUCCIÓN</span>
+  <div class="week">
+    <button onclick="shiftWeek(-1)">‹</button>
+    <div><div class="lbl" id="wkLbl">Lun 16/06 – Sáb 21/06</div><div class="sub" style="text-align:center">06:00 a 06:00</div></div>
+    <button onclick="shiftWeek(1)">›</button>
+  </div>
+</header>
+<main id="board"></main>
+<footer><button class="ghost" onclick="imprimirParte()">🖨️ Descargar PDF</button><button class="save" onclick="save()">GUARDAR PARTE</button></footer>
+
+<div id="printArea"></div>
+
+<div class="ov" id="ov" onclick="if(event.target===this)closeModal()">
+  <div class="sheet">
+    <button class="modalX" onclick="closeModal()">✕</button>
+    <h3 id="mTitle">Elegir personal</h3>
+    <div class="hint" id="mHint"></div>
+    <div class="people" id="mPeople"></div>
+    <button class="done" onclick="closeModal()">LISTO</button>
+  </div>
+</div>
+
+<script>
+const PERSONAL=[
+ {l:310,n:'CORDOBA JULIO ANTONIO',s:['Mantenimiento']},
+ {l:374,n:'BENITEZ CRISTIAN RAFAEL',s:['Hiladora']},
+ {l:381,n:'IBAÑEZ ALAN',s:['Laminadora','Telares']},
+ {l:392,n:'GARCIA AXEL AGUSTIN',s:['Hiladora']},
+ {l:396,n:'PALACIOS TOBIAS VALENTIN',s:['Telares','Hiladora']},
+ {l:398,n:'ESPINDOLA AXEL ARIEL',s:['Hiladora','Laminadora']},
+ {l:399,n:'TORRES DARIO ALEJANDRO',s:['Telares','Hiladora']},
+ {l:402,n:'CACERES EDUARDO JAVIER',s:['Telares','Laminadora']},
+ {l:405,n:'PEREZ VICTOR NICOLAS',s:['Telares']},
+ {l:406,n:'RODRIGUEZ RODRIGO ROMAN',s:['Hiladora','Telares']},
+ {l:408,n:'REINOSO MATIAS ADRIAN',s:['Telares','Laminadora']},
+ {l:419,n:'TORRES MORALES LUCIANO',s:['Telares']},
+ {l:420,n:'CONTRERAS ALBERTO',s:['Hiladora']},
+ {l:427,n:'ALVAREZ CRISTOBAL ADRIAN',s:['Hiladora','Telares']},
+ {l:432,n:'ALEGRE MATIAS',s:['Telares']},
+ {l:437,n:'PERALTA GABRIEL',s:['Hiladora','Telares']},
+ {l:441,n:'SILVA AGUAYO RAFAEL DAMIAN',s:['Telares']},
+ {l:443,n:'JOEL CACERES',s:['Telares']},
+ {l:447,n:'GERARDO OBREGON',s:['Hiladora']},
+];
+const SECTORS=[
+ {name:'Telares',filter:'Telares',puestos:[{n:'Maquinista',multi:true},{n:'Changarín'}]},
+ {name:'Laminadora',filter:'Laminadora',puestos:[{n:'Maquinista'},{n:'Ayudante'}]},
+ {name:'Hiladora 1',filter:'Hiladora',puestos:[{n:'Maquinista'},{n:'Ayudante'}]},
+ {name:'Hiladora 2',filter:'Hiladora',puestos:[{n:'Maquinista'},{n:'Ayudante'}]},
+ {name:'Recuperado',filter:null,puestos:[{n:'Personal'}]},
+];
+const TURNOS=['Mañana','Tarde'];
+const nameOf=l=>(PERSONAL.find(p=>p.l===l)||{}).n||l;
+let data={}; let cur=null;
+SECTORS.forEach(s=>{data[s.name]={};s.puestos.forEach(p=>{data[s.name][p.n]={'Mañana':[],'Tarde':[]}})});
+
+function render(){
+  const b=document.getElementById('board');b.innerHTML='';
+  SECTORS.forEach(s=>{
+    const div=document.createElement('div');div.className='sector';
+    let h='<h2><span class="dot"></span>'+s.name.toUpperCase()+'</h2><div class="grid"><div class="gh"></div><div class="gh t">Mañana</div><div class="gh t">Tarde</div>';
+    s.puestos.forEach((p,pi)=>{
+      const last=pi===s.puestos.length-1?' row-last':'';
+      h+='<div class="puesto'+last+'">'+p.n+'</div>';
+      TURNOS.forEach(t=>{
+        const sel=data[s.name][p.n][t];
+        let chips=sel.map(l=>'<span class="chip">'+nameOf(l).split(' ')[0]+' '+(nameOf(l).split(' ')[1]||'')+' <span class="x">✕</span></span>').join('');
+        h+='<div class="cell'+last+'" onclick="openModal(\''+s.name+'\',\''+p.n+'\',\''+t+'\')">'+(chips||'')+'<span class="add">+ agregar</span></div>';
+      });
+    });
+    h+='</div>';div.innerHTML=h;b.appendChild(div);
+  });
+}
+function openModal(sec,puesto,turno){
+  cur={sec,puesto,turno};
+  const s=SECTORS.find(x=>x.name===sec);const p=s.puestos.find(x=>x.n===puesto);
+  document.getElementById('mTitle').textContent=sec+' · '+puesto+' · '+turno;
+  document.getElementById('mHint').textContent=p.multi?'Podés elegir VARIOS. Tocá para sumar o sacar.':'Elegí UNO. Tocá para cambiar.';
+  const pool=PERSONAL.filter(pe=>!s.filter||pe.s.includes(s.filter));
+  const sel=data[sec][puesto][turno];
+  document.getElementById('mPeople').innerHTML=pool.map(pe=>
+    '<div class="person'+(sel.includes(pe.l)?' sel':'')+'" onclick="pick('+pe.l+')"><span>'+pe.n+'</span><span class="lg">Leg. '+pe.l+'</span></div>').join('');
+  document.getElementById('ov').classList.add('on');
+}
+function pick(l){
+  const s=SECTORS.find(x=>x.name===cur.sec);const p=s.puestos.find(x=>x.n===cur.puesto);
+  let arr=data[cur.sec][cur.puesto][cur.turno];
+  if(p.multi){ arr.includes(l)?arr.splice(arr.indexOf(l),1):arr.push(l); }
+  else{ data[cur.sec][cur.puesto][cur.turno]= arr.includes(l)?[]:[l]; }
+  openModal(cur.sec,cur.puesto,cur.turno);render();
+}
+function closeModal(){document.getElementById('ov').classList.remove('on')}
+let wkOffset=0;
+function mondayOf(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);x.setHours(0,0,0,0);return x;}
+function renderWeek(){const m=mondayOf(new Date());m.setDate(m.getDate()+wkOffset*7);const s=new Date(m);s.setDate(s.getDate()+5);
+  const f=d=>d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
+  document.getElementById('wkLbl').textContent='Lun '+f(m)+' – Sáb '+f(s);}
+function shiftWeek(d){wkOffset+=d;renderWeek();}
+function buildPartePDF(){
+  const semana=document.getElementById('wkLbl').textContent;
+  let h=`<div><h2>PITEC — PARTE SEMANAL</h2><div class="meta">Semana: ${semana} · 06:00 a 06:00</div>`;
+  SECTORS.forEach(s=>{
+    h+=`<h3>${s.name}</h3><table class="pt"><tr><th>Puesto</th><th>Mañana</th><th>Tarde</th></tr>`;
+    s.puestos.forEach(p=>{
+      const m=data[s.name][p.n]['Mañana'].map(nameOf).join(', ')||'—';
+      const t=data[s.name][p.n]['Tarde'].map(nameOf).join(', ')||'—';
+      h+=`<tr><td class="pp">${p.n}</td><td>${m}</td><td>${t}</td></tr>`;
+    });
+    h+=`</table>`;
+  });
+  return h+`</div>`;
+}
+function imprimirParte(){ document.getElementById('printArea').innerHTML=buildPartePDF(); window.print(); }
+async function save(){
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const semana=document.getElementById('wkLbl').textContent;
+  const rows=[];
+  SECTORS.forEach(s=>s.puestos.forEach(p=>TURNOS.forEach(t=>{
+    data[s.name][p.n][t].forEach(l=>rows.push({'Semana':semana,'Sector':s.name,'Puesto':p.n,'Turno':t,'Legajo':l,'Nombre':nameOf(l)}));
+  })));
+  if(!rows.length){alert('No asignaste a nadie todavía');return;}
+  const btn=document.querySelector('.save');btn.disabled=true;btn.textContent='Guardando…';
+  try{ for(const row of rows){ await apiPost({action:'append',sheet:'Parte Semanal',data:row}); }
+    alert('Parte semanal guardado ✔ ('+rows.length+' asignaciones)'); }
+  catch(e){ alert('Error: '+e); }
+  btn.textContent='GUARDAR PARTE';btn.disabled=false;
+}
+render();renderWeek();
+</script>
+</body>
+</html>

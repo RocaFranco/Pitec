@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Entregas</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:120px}
+  .note{background:#eaf2ff;border:1px solid #c4dbff;border-radius:10px;padding:10px 14px;color:var(--acc-d);font-size:13px;font-weight:600}
+  .stockrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
+  .stockrow:hover{background:#f0f5ff}
+  .stockrow .cod{font-weight:700;color:var(--acc-d);min-width:90px}
+  .stockrow .det{flex:1;color:var(--mut);font-size:13px}
+  .stockrow .plus{color:var(--acc2-d);font-weight:800;font-size:18px}
+  .li.head{background:var(--card2);font-weight:700;color:var(--mut);font-size:11px;text-transform:uppercase}
+  .totbar{position:sticky;bottom:64px;background:#eaf2ff;border:1px solid #c4dbff;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;font-weight:800;color:var(--acc-d);margin-top:10px}
+  .x{color:var(--bad);cursor:pointer;font-weight:700}
+  .empty{padding:14px;color:var(--mut);font-size:13px}
+  #printArea{display:none}
+  @media print{
+    header,main,footer{display:none!important}
+    #printArea{display:block!important;padding:20px;color:#000}
+    #printArea h2{font-size:22px;margin-bottom:2px}
+    #printArea .meta{font-size:13px;margin-bottom:14px;color:#333}
+    #printArea h3{font-size:15px;margin:14px 0 5px;border-bottom:2px solid #000;padding-bottom:3px;text-transform:uppercase}
+    #printArea .rt{width:100%;border-collapse:collapse;margin-bottom:7px}
+    #printArea .rt td{border:1px solid #888;padding:6px 9px;font-size:13px}
+    #printArea .rt .ft{font-weight:700;width:130px}
+    #printArea .rt .cods{font-size:11px;color:#444;background:#f3f3f3}
+    #printArea .tot{margin-top:16px;font-size:16px;font-weight:800;border-top:3px solid #000;padding-top:8px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>ENTREGAS</b></h1>
+  <span class="badge">A ÁLAMO</span>
+  <span class="date">Mié 18/06</span>
+</header>
+
+<main id="vHoy">
+  <button class="big" onclick="goForm()">＋  NUEVA ENTREGA</button>
+  <h3 class="sec">Últimas entregas (remitos)</h3>
+  <div class="listbox"><div class="lh">Remito · Destino · Total</div><div id="remitos"></div></div>
+</main>
+
+<main id="vForm" class="hidden">
+  <div class="note">Destino: <b>Álamo</b> · El N° de remito y la fecha se generan solos al confirmar.</div>
+
+  <div class="step"><div class="lbl"><span class="num">1</span>CATEGORÍA</div>
+    <div class="opts" id="cats"></div></div>
+
+  <div class="step hidden" id="stFmt"><div class="lbl"><span class="num">2</span>FORMATO</div>
+    <div class="opts" id="fmts"></div></div>
+
+  <div class="listbox hidden" id="stStock"><div class="lh">Stock disponible — tocá para agregar <span id="stockSub" class="mut"></span></div>
+    <div id="stockList"></div></div>
+
+  <div style="height:14px"></div>
+  <div class="listbox"><div class="lh">Bobinas en esta entrega <span id="cnt" class="mut"></span></div>
+    <div id="bobList"></div></div>
+  <div class="totbar"><span>TOTAL</span><span id="tot">0 m · 0 kg</span></div>
+</main>
+
+<footer id="ftHoy"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Tocá “Nueva entrega” para empezar</span></footer>
+<footer id="ftForm" class="hidden"><button class="ghost" onclick="goHoy()">✕</button><button class="ghost" id="btnPrint" onclick="imprimir('PREVIA')">🖨️ Imprimir</button><button class="save" id="btnConf" onclick="confirmar()" disabled>CONFIRMAR → ÁLAMO</button></footer>
+
+<div id="printArea"></div>
+
+<script src="pitec_api.js"></script>
+<script>
+// stock (se llena del Sheet al abrir "Nueva entrega"). Demo de respaldo si no hay conexión:
+let STOCK=[
+ {cod:'B1985',forma:'Tubular',cat:'Para Laminar',fmt:47,mts:8000,kg:410},
+ {cod:'B1986',forma:'Tubular',cat:'Para Laminar',fmt:47,mts:8000,kg:412},
+ {cod:'B1987',forma:'Tubular',cat:'Para Laminar',fmt:47,mts:7800,kg:402},
+ {cod:'E671',forma:'Tubular',cat:'Para Laminar',fmt:60,mts:5000,kg:325},
+ {cod:'E672',forma:'Tubular',cat:'Para Laminar',fmt:60,mts:4800,kg:312},
+ {cod:'A96',forma:'Tubular',cat:'Convencional',fmt:40,mts:4000,kg:178},
+ {cod:'A97',forma:'Tubular',cat:'Convencional',fmt:40,mts:4000,kg:180},
+ {cod:'D112',forma:'Tubular',cat:'Convencional',fmt:57,mts:6000,kg:360},
+ {cod:'L-E459/3',forma:'Tubular',cat:'Laminada',fmt:60,mts:1314,kg:112},
+ {cod:'L-E459/5',forma:'Tubular',cat:'Laminada',fmt:60,mts:1400,kg:122},
+ {cod:'L-E460/1',forma:'Tubular',cat:'Laminada',fmt:60,mts:4990,kg:421},
+ {cod:'L-B1900/1',forma:'Tubular',cat:'Laminada',fmt:47,mts:5000,kg:280},
+ {cod:'F133',forma:'Plano',cat:'Plana',fmt:82,mts:6000,kg:300},
+ {cod:'F134',forma:'Plano',cat:'Plana',fmt:82,mts:6000,kg:305},
+ {cod:'G636',forma:'Plano',cat:'Plana',fmt:102,mts:10000,kg:550},
+];
+const REMITOS=[{nota:'5025',destino:'Álamo',mts:86620,kg:4879},{nota:'4976',destino:'Álamo',mts:137221,kg:7489}];
+let bobs=[], catSel=null, fmtSel=null, nextNota=5400;
+
+const uniq=a=>[...new Set(a)];
+function renderRemitos(){document.getElementById('remitos').innerHTML=REMITOS.map(r=>
+  `<div class="li"><span class="cod">Remito ${r.nota}</span><span class="mut">${r.destino} · ${r.mts.toLocaleString()} m · ${r.kg.toLocaleString()} kg</span></div>`).join('');}
+function renderCats(){
+  const cats=uniq(STOCK.map(b=>b.cat));
+  document.getElementById('cats').innerHTML=cats.map(c=>`<div class="opt" data-c="${c}" onclick="pickCat('${c}')">${c}</div>`).join('')
+    ||'<span class="empty">No hay stock disponible</span>';
+}
+function pickCat(c){catSel=c;fmtSel=null;
+  document.querySelectorAll('#cats .opt').forEach(o=>o.classList.toggle('sel',o.dataset.c===c));
+  const fmts=uniq(STOCK.filter(b=>b.cat===c).map(b=>b.fmt)).sort((a,b)=>a-b);
+  document.getElementById('fmts').innerHTML=fmts.map(f=>`<div class="opt" data-f="${f}" onclick="pickFmt(${f})">${f}</div>`).join('');
+  document.getElementById('stFmt').classList.remove('hidden');
+  document.getElementById('stStock').classList.add('hidden');
+}
+function pickFmt(f){fmtSel=f;
+  document.querySelectorAll('#fmts .opt').forEach(o=>o.classList.toggle('sel',+o.dataset.f===f));
+  renderStock();document.getElementById('stStock').classList.remove('hidden');
+}
+function renderStock(){
+  const list=STOCK.filter(b=>b.cat===catSel&&b.fmt===fmtSel);
+  document.getElementById('stockSub').textContent=`(${catSel} · Fto ${fmtSel})`;
+  document.getElementById('stockList').innerHTML=list.map(b=>
+   `<div class="stockrow" onclick="addBob('${b.cod}')"><span class="cod">${b.cod}</span><span class="det">${b.forma} · ${b.mts.toLocaleString()} m · ${b.kg} kg</span><span class="plus">＋</span></div>`).join('')
+   ||'<div class="empty">No queda stock de esta categoría/formato</div>';
+}
+function addBob(cod){const i=STOCK.findIndex(b=>b.cod===cod);if(i<0)return;bobs.push(STOCK[i]);STOCK.splice(i,1);renderStock();render();}
+function delBob(i){STOCK.push(bobs[i]);bobs.splice(i,1);render();if(catSel&&fmtSel)renderStock();}
+function render(){
+  document.getElementById('cnt').textContent=bobs.length?`(${bobs.length})`:'';
+  document.getElementById('bobList').innerHTML=bobs.map((b,i)=>
+   `<div class="li"><span class="cod">${b.cod}</span><span style="flex:1;text-align:right" class="mut">${b.forma} · ${b.cat} · Fto ${b.fmt}</span><span style="width:120px;text-align:right">${b.mts.toLocaleString()} / ${b.kg}</span><span style="width:24px;text-align:center" class="x" onclick="delBob(${i})">✕</span></div>`).join('')
+   ||'<div class="empty">Elegí categoría y formato, y tildá las bobinas del stock</div>';
+  const tm=bobs.reduce((a,b)=>a+b.mts,0),tk=bobs.reduce((a,b)=>a+b.kg,0);
+  document.getElementById('tot').textContent=`${tm.toLocaleString()} m · ${tk.toLocaleString()} kg`;
+  document.getElementById('btnConf').disabled=bobs.length===0;
+}
+async function goForm(){bobs=[];catSel=null;fmtSel=null;
+  document.getElementById('vHoy').classList.add('hidden');document.getElementById('vForm').classList.remove('hidden');
+  document.getElementById('ftHoy').classList.add('hidden');document.getElementById('ftForm').classList.remove('hidden');
+  document.getElementById('cats').innerHTML='<span class="empty">Cargando stock…</span>';
+  if(apiListo()){ try{ const s=await apiGet({action:'stock'}); if(Array.isArray(s)) STOCK=s.map(b=>({cod:b.cod,forma:b.forma,cat:b.cat,fmt:Number(b.fmt),mts:Number(b.mts)||0,kg:Number(b.kg)||0})); }catch(e){} }
+  renderCats();render();}
+function goHoy(){document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
+  document.getElementById('ftForm').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');}
+function buildRemitoHTML(num){
+  const f=new Date().toLocaleDateString('es-AR');
+  const byCat={};
+  bobs.forEach(b=>{(byCat[b.cat]=byCat[b.cat]||{});const g=byCat[b.cat];(g[b.fmt]=g[b.fmt]||{cods:[],mts:0,kg:0});g[b.fmt].cods.push(b.cod);g[b.fmt].mts+=b.mts;g[b.fmt].kg+=b.kg;});
+  let h=`<div><h2>PITEC — REMITO DE ENTREGA</h2><div class="meta">Destino: <b>Álamo</b> &nbsp;·&nbsp; Fecha: <b>${f}</b> &nbsp;·&nbsp; Remito N°: <b>${num}</b> &nbsp;·&nbsp; <i>pendiente de recepción</i></div>`;
+  let tC=0,tM=0,tK=0;
+  Object.keys(byCat).forEach(cat=>{
+    h+=`<h3>${cat}</h3>`;
+    Object.keys(byCat[cat]).sort((a,b)=>a-b).forEach(fmt=>{const g=byCat[cat][fmt];tC+=g.cods.length;tM+=g.mts;tK+=g.kg;
+      h+=`<table class="rt"><tr><td class="ft">Formato ${fmt}</td><td><b>${g.cods.length}</b> bobinas</td><td>${g.mts.toLocaleString()} m</td><td>${g.kg.toLocaleString()} kg</td></tr><tr><td colspan="4" class="cods">${g.cods.join(' · ')}</td></tr></table>`;});
+  });
+  h+=`<div class="tot">TOTAL: ${tC} bobinas &nbsp;·&nbsp; ${tM.toLocaleString()} m &nbsp;·&nbsp; ${tK.toLocaleString()} kg</div></div>`;
+  return h;
+}
+function imprimir(num){if(!bobs.length){alert('Agregá bobinas primero');return;}document.getElementById('printArea').innerHTML=buildRemitoHTML(num);window.print();}
+async function confirmar(){
+  if(!apiListo()){alert('Sin conexión');return;}
+  const btn=document.getElementById('btnConf');btn.disabled=true;btn.textContent='Confirmando…';
+  const tk=bobs.reduce((a,b)=>a+b.kg,0),tm=bobs.reduce((a,b)=>a+b.mts,0);
+  try{
+    const r=await apiPost({action:'confirmarentrega',bobinas:bobs.map(b=>b.cod),destino:'Álamo'});
+    if(r&&r.ok){
+      document.getElementById('printArea').innerHTML=buildRemitoHTML(r.remito);
+      REMITOS.unshift({nota:String(r.remito),destino:'Álamo',mts:tm,kg:tk});
+      window.print(); bobs=[];catSel=null;fmtSel=null;renderRemitos();goHoy();
+    } else alert('No se pudo: '+((r&&r.error)||'error'));
+  }catch(e){alert('Error: '+e);}
+  btn.textContent='CONFIRMAR → ÁLAMO';btn.disabled=false;}
+renderRemitos();
+</script>
+</body>
+</html>

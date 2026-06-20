@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Ingreso de Bobinas</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<script src="pitec_api.js"></script>
+<style>
+  main{padding-bottom:110px}
+  .modes{display:flex;gap:10px;margin-bottom:4px}
+  .mode{flex:1;background:#fff;border:1px solid var(--line);color:var(--mut);font-weight:700;font-size:16px;padding:14px;border-radius:11px;cursor:pointer;text-align:center}
+  .mode.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .codbox{background:#eaf6ef;border:1px solid #bfe6cf;border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+  .codbox .k{color:var(--acc2-d);font-size:13px} .codbox .v{font-size:24px;font-weight:800;color:var(--acc2-d)}
+  .stockOk{color:var(--acc2-d);font-weight:600;font-size:14px;margin-top:6px}
+  .stockBad{color:var(--bad);font-weight:600;font-size:14px;margin-top:6px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>INGRESO DE BOBINAS</b></h1>
+  <span class="badge green" id="modeLbl">Reingreso</span>
+  <span class="date" id="hoy"></span>
+</header>
+<main>
+  <div class="modes">
+    <div class="mode on" id="mRe" onclick="setMode('re')">🔄 Reingreso (bobina propia)</div>
+    <div class="mode" id="mEx" onclick="setMode('ex')">📥 Bobina externa (proveedor)</div>
+  </div>
+
+  <!-- REINGRESO -->
+  <div id="paneRe">
+    <div class="step"><div class="lbl"><span class="num">1</span>CÓDIGO DE LA BOBINA QUE VUELVE</div>
+      <input type="text" id="reCod" placeholder="Ej: B1985" style="text-transform:uppercase" oninput="chkRe()">
+      <div id="reMsg"></div>
+      <div class="sug">Es una bobila propia que salió y vuelve. Tipeás el código y la devolvemos al stock.</div></div>
+  </div>
+
+  <!-- EXTERNA -->
+  <div id="paneEx" class="hidden">
+    <div class="step"><div class="lbl"><span class="num">1</span>PROVEEDOR</div>
+      <div class="opts" id="provs"></div>
+      <div id="nuevoProvBox" class="hidden" style="margin-top:10px">
+        <input type="text" id="provNuevo" placeholder="Nombre del proveedor nuevo" oninput="prevPref()">
+        <div class="sug" id="prefPrev"></div>
+      </div></div>
+    <div class="step"><div class="lbl"><span class="num">2</span>MEDIDAS</div>
+      <div class="num2">
+        <div class="f"><input type="number" id="mts" placeholder="Metros" oninput="chkEx()"></div>
+        <div class="f"><input type="number" id="kg" placeholder="Kg" oninput="chkEx()"></div>
+        <div class="f"><input type="number" id="gr" placeholder="Gr/m²" oninput="chkEx()"></div>
+      </div></div>
+    <div class="step"><div class="codbox"><span class="k">CÓDIGO (se arma con el proveedor)</span><span class="v" id="codVal">—</span></div></div>
+  </div>
+</main>
+
+<footer id="ftRe"><button class="save" id="btnRe" onclick="reingresar()" disabled>REINGRESAR A STOCK</button></footer>
+<footer id="ftEx" class="hidden"><button class="save" id="btnEx" onclick="guardarExterna()" disabled>GUARDAR BOBINA EXTERNA</button></footer>
+
+<script>
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+let PROV=[{nombre:'Navegante',pref:'NAV'},{nombre:'Envaplast',pref:'ENV'}];
+let prov=null, reOk=null;
+const prefijo=n=>n.trim().toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);
+
+function setMode(m){
+  document.getElementById('mRe').classList.toggle('on',m==='re');
+  document.getElementById('mEx').classList.toggle('on',m==='ex');
+  document.getElementById('paneRe').classList.toggle('hidden',m!=='re');
+  document.getElementById('paneEx').classList.toggle('hidden',m!=='ex');
+  document.getElementById('ftRe').classList.toggle('hidden',m!=='re');
+  document.getElementById('ftEx').classList.toggle('hidden',m!=='ex');
+  document.getElementById('modeLbl').textContent=m==='re'?'Reingreso':'Bobina externa';
+}
+// reingreso (solo propias, ya tienen código)
+async function chkRe(){
+  const v=document.getElementById('reCod').value.trim().toUpperCase(); const m=document.getElementById('reMsg'); reOk=null;
+  if(!v){m.innerHTML='';return upRe();}
+  if(!apiListo()){m.innerHTML='<div class="stockBad">Sin conexión</div>';return;}
+  m.innerHTML='<div class="sug">Buscando…</div>';
+  try{const r=await apiGet({action:'bobina',cod:v});
+    if(!r.existe) m.innerHTML='<div class="stockBad">⚠ Ese código NO existe</div>';
+    else if(r.enStock) m.innerHTML='<div class="stockOk">Esta bobina YA está en stock</div>';
+    else {reOk=v; m.innerHTML=`<div class="stockOk">✓ ${r.forma||''} ${r.fmt||''} ${r.cat||''} — lista para reingresar</div>`;}
+  }catch(e){m.innerHTML='<div class="stockBad">Error</div>';}
+  upRe();
+}
+function upRe(){document.getElementById('btnRe').disabled=!reOk;}
+async function reingresar(){
+  const r=await apiPost({action:'reingreso',codigo:reOk});
+  if(r&&r.ok){alert('Bobina '+reOk+' reingresada al stock ✔');document.getElementById('reCod').value='';document.getElementById('reMsg').innerHTML='';reOk=null;upRe();}
+  else alert('No se pudo: '+((r&&r.error)||'error'));
+}
+// externa (solo mts, kg, gr/m²)
+function renderProvs(){
+  document.getElementById('provs').innerHTML=PROV.map(p=>`<div class="opt" data-p="${p.nombre}" onclick="pickProv('${p.nombre}')">${p.nombre}</div>`).join('')
+    +`<div class="opt" style="border-style:dashed" data-p="__nuevo__" onclick="pickProv('__nuevo__')">+ Nuevo</div>`;
+}
+function pickProv(n){prov=n;
+  document.querySelectorAll('#provs .opt').forEach(o=>o.classList.toggle('sel',o.dataset.p===n));
+  document.getElementById('nuevoProvBox').classList.toggle('hidden',n!=='__nuevo__');
+  updCod(); chkEx();
+}
+function prevPref(){const n=document.getElementById('provNuevo').value;document.getElementById('prefPrev').textContent=n?('Prefijo: '+prefijo(n)):'';updCod();chkEx();}
+function provPref(){ if(prov==='__nuevo__')return prefijo(document.getElementById('provNuevo').value||''); const p=PROV.find(x=>x.nombre===prov); return p?p.pref:''; }
+function updCod(){const pf=provPref();document.getElementById('codVal').textContent=pf?(pf+'-(auto)'):'—';}
+function chkEx(){
+  const provOk = prov && (prov!=='__nuevo__' || document.getElementById('provNuevo').value.trim());
+  document.getElementById('btnEx').disabled=!(provOk && +document.getElementById('mts').value>0 && +document.getElementById('kg').value>0);
+}
+async function guardarExterna(){
+  let nombre=prov, pref=provPref();
+  if(prov==='__nuevo__'){ nombre=document.getElementById('provNuevo').value.trim();
+    await apiPost({action:'append',sheet:'Cat Proveedores',data:{'Nombre':nombre,'Prefijo':pref}}); }
+  const data={'Proveedor':nombre,'Prefijo':pref,
+    'Metros':+document.getElementById('mts').value,'Kg':+document.getElementById('kg').value,
+    'Gramaje':+document.getElementById('gr').value||'','Fecha':new Date().toISOString().slice(0,10)};
+  const r=await apiPost({action:'guardarexterna',data});
+  if(r&&r.ok){alert('Bobina externa guardada ✔  Código: '+r.codigo);location.reload();}
+  else alert('No se pudo: '+((r&&r.error)||'error'));
+}
+async function cargarProv(){ if(!apiListo())return; try{const c=await apiGet({action:'read',sheet:'Cat Proveedores'}); if(Array.isArray(c)&&c.length){PROV=c.map(r=>({nombre:r['Nombre'],pref:r['Prefijo']||prefijo(r['Nombre'])}));renderProvs();}}catch(e){} }
+renderProvs(); cargarProv();
+</script>
+</body>
+</html>

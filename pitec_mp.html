@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Materia Prima</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:30px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:700;padding:14px;border-radius:12px;cursor:pointer;text-align:center;font-size:15px}
+  .tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .tab.on.ret{background:var(--bad);border-color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>MATERIA PRIMA</b></h1>
+  <span class="badge" id="hBadge">ENTRADA</span>
+  <span class="date">Mié 18/06</span>
+</header>
+
+<main>
+  <div class="tabs">
+    <div class="tab on" id="tEnt" onclick="setTab('ent')">📥 Entrada de MP</div>
+    <div class="tab" id="tRet" onclick="setTab('ret')">📤 Retiro de MP</div>
+  </div>
+
+  <!-- ENTRADA -->
+  <div id="paneEnt">
+    <div class="step"><div class="lbl">Cargar entrada (compra)</div>
+      <div class="num2">
+        <div class="f"><input type="date" id="eFecha"></div>
+        <div class="f"><select id="eCod"></select></div>
+        <div class="f"><input type="number" id="eKg" placeholder="Kg"></div></div>
+      <div class="num2" style="margin-top:10px">
+        <div class="f"><input type="text" id="eProv" placeholder="Proveedor (opcional)"></div>
+        <button class="save" style="flex:0 0 auto;margin-left:0" onclick="addEnt()">＋ Cargar</button></div></div>
+    <h3 class="sec">Últimas entradas</h3>
+    <div class="listbox"><div class="lh">Fecha · Código · Kg</div><div id="listEnt"></div></div>
+  </div>
+
+  <!-- RETIRO -->
+  <div id="paneRet" class="hidden">
+    <div class="step"><div class="lbl">Cargar retiro (salida / Quilmes / devolución)</div>
+      <div class="num2">
+        <div class="f"><input type="date" id="rFecha"></div>
+        <div class="f"><select id="rCod"></select></div>
+        <div class="f"><input type="number" id="rKg" placeholder="Kg"></div></div>
+      <div class="num2" style="margin-top:10px">
+        <div class="f"><input type="text" id="rQuien" placeholder="Retirado por / Nota (ej: Quilmes, Nota 5310)"></div>
+        <button class="save" style="flex:0 0 auto;padding:13px 28px;background:var(--bad)" onclick="addRet()">＋ Cargar</button></div></div>
+    <h3 class="sec">Últimos retiros</h3>
+    <div class="listbox"><div class="lh">Fecha · Código · Kg · Quién</div><div id="listRet"></div></div>
+  </div>
+</main>
+
+<script src="pitec_api.js"></script>
+<script>
+const MP=['XSD 6200T','PP H-103','1100T','LYD6200K','KYD 6110','PP H 503HS','9048','30080','1001 BR','APC','APP','BC818','901021'];
+const ENT=[{f:'18/06',cod:'KYD 6110',kg:13500},{f:'13/06',cod:'LYD6200K',kg:13500}];
+const RET=[{f:'17/06',cod:'1100T',kg:3000,q:'Nota 5372'},{f:'12/06',cod:'APP',kg:25,q:'Sebastián'}];
+function fillSel(id){document.getElementById(id).innerHTML='<option value="">— Código MP —</option>'+MP.map(m=>`<option>${m}</option>`).join('');}
+function setTab(t){const e=t==='ent';
+  document.getElementById('tEnt').classList.toggle('on',e);document.getElementById('tRet').classList.toggle('on',!e);
+  document.getElementById('tRet').classList.toggle('ret',!e);
+  document.getElementById('paneEnt').classList.toggle('hidden',!e);document.getElementById('paneRet').classList.toggle('hidden',e);
+  document.getElementById('hBadge').textContent=e?'ENTRADA':'RETIRO';}
+function renderEnt(){document.getElementById('listEnt').innerHTML=ENT.map(x=>
+  `<div class="li"><span>${x.f} · <b>${x.cod}</b></span><span class="mut">${x.kg.toLocaleString()} kg</span></div>`).join('');}
+function renderRet(){document.getElementById('listRet').innerHTML=RET.map(x=>
+  `<div class="li"><span>${x.f} · <b>${x.cod}</b></span><span class="mut">${x.kg.toLocaleString()} kg · ${x.q}</span></div>`).join('');}
+async function addEnt(){const c=document.getElementById('eCod').value,k=+document.getElementById('eKg').value;
+  if(!c||!(k>0)){alert('Elegí código y kg');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const fecha=document.getElementById('eFecha').value;
+  const r=await apiPost({action:'append',sheet:'Entrada MP',data:{'Fecha':fecha,'Código MP':c,'Kg':k,'Proveedor':document.getElementById('eProv').value}});
+  if(r&&r.ok){ENT.unshift({f:fecha||'hoy',cod:c,kg:k});document.getElementById('eKg').value='';document.getElementById('eProv').value='';renderEnt();}
+  else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
+async function addRet(){const c=document.getElementById('rCod').value,k=+document.getElementById('rKg').value;
+  if(!c||!(k>0)){alert('Elegí código y kg');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const fecha=document.getElementById('rFecha').value,q=document.getElementById('rQuien').value;
+  const r=await apiPost({action:'append',sheet:'Retiro MP',data:{'Fecha':fecha,'Código MP':c,'Kg':k,'Retirado por / Nota':q}});
+  if(r&&r.ok){RET.unshift({f:fecha||'hoy',cod:c,kg:k,q:q||'—'});document.getElementById('rKg').value='';document.getElementById('rQuien').value='';renderRet();}
+  else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
+fillSel('eCod');fillSel('rCod');renderEnt();renderRet();
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Telares</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>main{padding-bottom:110px}</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b id="hTitle">TELARES</b></h1>
+  <span class="badge" id="hBadge">HOY</span>
+  <span class="date" id="hDate">Mié 18/06</span>
+</header>
+
+<!-- ===== VISTA HOY ===== -->
+<main id="vHoy">
+  <button class="big" onclick="goForm()">＋  CARGAR BOBINA</button>
+  <h3 class="sec">Bobinas cargadas hoy</h3>
+  <table>
+    <thead><tr><th>Código</th><th>Telar</th><th>Forma</th><th>Fto</th><th>Cat.</th><th>Metros</th><th>Kg</th></tr></thead>
+    <tbody id="hoyBody"></tbody>
+  </table>
+</main>
+
+<!-- ===== VISTA CARGAR ===== -->
+<main id="vForm" class="hidden">
+  <div class="step"><div class="lbl"><span class="num">1</span>TELAR</div>
+    <div class="grid16" id="telares"></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">2</span>FORMA</div>
+    <div class="opts" id="formas"></div></div>
+
+  <div class="step" id="stFmt"><div class="lbl"><span class="num">3</span>FORMATO</div>
+    <div class="opts" id="formatos"></div>
+    <div id="ventBox" class="hidden" style="margin-top:12px">
+      <div class="lbl" style="font-size:12px;color:var(--mut)">¿Con ventana cristal?</div>
+      <div class="opts"><div class="opt" data-v="No" onclick="setVent('No')">No</div><div class="opt" data-v="Sí" onclick="setVent('Sí')">Sí</div></div>
+    </div></div>
+
+  <div class="step" id="stCod" class="hidden">
+    <div class="codbox"><span class="k">CÓDIGO (automático)</span><span class="v" id="codVal">—</span></div></div>
+
+  <div class="step" id="stCat"><div class="lbl"><span class="num">4</span>CATEGORÍA</div>
+    <div class="opts"><div class="opt" data-c="Para Laminar" onclick="setCat('Para Laminar')">Para Laminar</div>
+      <div class="opt" data-c="Convencional" onclick="setCat('Convencional')">Convencional</div></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">5</span>TRAMA</div>
+    <div class="opts"><div class="opt" data-t="3" onclick="setTrama('3')">3</div>
+      <div class="opt" data-t="5" onclick="setTrama('5')">5</div>
+      <div class="opt" data-t="5.5" onclick="setTrama('5.5')">5.5</div></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">6</span>MEDIDAS</div>
+    <div class="num2">
+      <div class="f"><input type="number" id="mts" placeholder="Metros" oninput="calc()"></div>
+      <div class="f"><input type="number" id="kg" placeholder="Kg" oninput="calc()"></div>
+    </div></div>
+
+  <div class="step"><div class="lbl"><span class="num">7</span>HORARIOS</div>
+    <div class="num2">
+      <div class="f"><input type="datetime-local" id="ini"><div class="sug" id="iniSug"></div></div>
+      <div class="f"><input type="datetime-local" id="fin"></div>
+    </div></div>
+
+  <div class="step"><div class="calc">
+    <span>Gramaje: <b id="cGram">—</b></span><span>Tiempo: <b id="cTime">—</b></span><span>Estado: <b id="cEst">Stock</b></span>
+  </div></div>
+</main>
+
+<footer id="ftHoy"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Tocá “Cargar bobina” para empezar</span></footer>
+<footer id="ftForm" class="hidden">
+  <button class="ghost" onclick="goHoy()">✕ Salir</button>
+  <button class="save" id="btnSave" onclick="guardar()" disabled>GUARDAR</button>
+</footer>
+
+<script src="pitec_api.js"></script>
+<script>
+const CAT_FORMATOS=[
+ {forma:'Tubular',fmt:40,vent:'No',letra:'A',ult:95},{forma:'Tubular',fmt:47,vent:'No',letra:'B',ult:1984},
+ {forma:'Tubular',fmt:53,vent:'No',letra:'C',ult:362},{forma:'Tubular',fmt:57,vent:'No',letra:'D',ult:111},
+ {forma:'Tubular',fmt:60,vent:'No',letra:'E',ult:670},
+ {forma:'Plano',fmt:71,vent:'No',letra:'K',ult:98},{forma:'Plano',fmt:82,vent:'No',letra:'F',ult:132},
+ {forma:'Plano',fmt:102,vent:'No',letra:'G',ult:634},{forma:'Plano',fmt:120,vent:'No',letra:'H',ult:40},
+ {forma:'Plano',fmt:102,vent:'Sí',letra:'V',ult:0},
+ {forma:'Transparente',fmt:40,vent:'No',letra:'L',ult:13},{forma:'Transparente',fmt:47,vent:'No',letra:'I',ult:95},
+ {forma:'Transparente',fmt:57,vent:'No',letra:'J',ult:18},
+];
+const FORMAS={'Tubular':[40,47,53,57,60],'Plano':[71,82,120,102],'Transparente':[40,47,57]};
+// último fin por telar (demo, vendría del Sheet)
+const ULT_FIN={5:'2026-06-18T03:40',8:'2026-06-17T22:10'};
+const HOY=[
+ {cod:'B1984',tel:5,forma:'Tubular',fmt:47,cat:'Para Laminar',mts:8000,kg:410},
+ {cod:'A95',tel:8,forma:'Tubular',fmt:40,cat:'Convencional',mts:4000,kg:178},
+];
+let st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:null};
+
+function renderHoy(){
+  document.getElementById('hoyBody').innerHTML=HOY.map(b=>
+   `<tr><td><span class="cod">${b.cod}</span></td><td>${b.tel}</td><td>${b.forma}</td><td>${b.fmt}</td>
+    <td><span class="pill">${b.cat}</span></td><td>${b.mts.toLocaleString()}</td><td>${b.kg}</td></tr>`).join('')
+   || '<tr><td colspan=7 style="color:#8b93a1">Todavía no cargaste bobinas hoy.</td></tr>';
+}
+function renderTelares(){
+  document.getElementById('telares').innerHTML=Array.from({length:16},(_,i)=>i+1).map(t=>
+   `<div class="opt" data-t="${t}" onclick="setTelar(${t})">${t}</div>`).join('');
+}
+function renderFormas(){
+  document.getElementById('formas').innerHTML=Object.keys(FORMAS).map(f=>
+   `<div class="opt" data-f="${f}" onclick="setForma('${f}')">${f}</div>`).join('');
+}
+function setTelar(t){st.telar=t;mark('telares','data-t',t);
+  const s=ULT_FIN[t];document.getElementById('iniSug').textContent=s?('Sugerido: fin del último telar '+t+' → '+fmtDate(s)):'';
+  if(s)document.getElementById('ini').value=s; chk();}
+function setForma(f){st.forma=f;st.fmt=null;st.vent='No';st.cat=null;mark('formas','data-f',f);
+  // categoría solo Tubular/Transparente (Plano = nunca se lamina)
+  document.getElementById('stCat').classList.toggle('hidden', f==='Plano');
+  renderFormatos(f);document.getElementById('ventBox').classList.add('hidden');updateCod();chk();}
+function renderFormatos(f){
+  document.getElementById('formatos').innerHTML=FORMAS[f].map(x=>
+   `<div class="opt" data-x="${x}" onclick="setFmt(${x})">${x}</div>`).join('');}
+function setFmt(x){st.fmt=x;st.vent='No';mark('formatos','data-x',x);
+  document.getElementById('ventBox').classList.toggle('hidden', !(st.forma==='Plano'&&x===102));
+  document.querySelectorAll('#ventBox .opt').forEach(o=>o.classList.remove('sel'));
+  updateCod();chk();}
+function setVent(v){st.vent=v;document.querySelectorAll('#ventBox .opt').forEach(o=>o.classList.toggle('sel',o.dataset.v===v));updateCod();chk();}
+function setCat(c){st.cat=c;document.querySelectorAll('#stCat .opt').forEach(o=>o.classList.toggle('sel',o.dataset.c===c));chk();}
+function setTrama(t){st.trama=t;document.querySelectorAll('.step .opt[data-t]').forEach(o=>{});
+  document.querySelectorAll('[data-t]').forEach(o=>{if(o.dataset.t===t&&['3','5','5.5'].includes(o.dataset.t))o.classList.add('sel');else if(['3','5','5.5'].includes(o.dataset.t))o.classList.remove('sel')});calc();chk();}
+function mark(id,attr,val){document.querySelectorAll('#'+id+' .opt').forEach(o=>o.classList.toggle('sel',o.getAttribute(attr)==String(val)))}
+async function updateCod(){
+  const box=document.getElementById('stCod');
+  if(st.forma&&st.fmt){
+    box.classList.remove('hidden');
+    if(apiListo()){
+      document.getElementById('codVal').textContent='…';
+      try{const r=await apiGet({action:'nextcodigo',forma:st.forma,formato:st.fmt,ventana:st.vent});
+        document.getElementById('codVal').textContent=r.codigo||'—';}
+      catch(e){document.getElementById('codVal').textContent='(sin conexión)';}
+    }else{
+      const row=CAT_FORMATOS.find(r=>r.forma===st.forma&&r.fmt===st.fmt&&r.vent===st.vent);
+      document.getElementById('codVal').textContent=row?row.letra+(row.ult+1):'—';
+    }
+  }else box.classList.add('hidden');
+}
+function calc(){
+  const m=+document.getElementById('mts').value,k=+document.getElementById('kg').value;
+  if(m>0&&k>0&&st.fmt){const K=st.fmt<=60?2:1;const g=(k*1000)/(m*(st.fmt+0.2)*K)*100;
+    document.getElementById('cGram').textContent=g.toFixed(1)+' gr/m²';}else document.getElementById('cGram').textContent='—';
+  const i=document.getElementById('ini').value,f=document.getElementById('fin').value;
+  if(i&&f){const h=(new Date(f)-new Date(i))/3.6e6;document.getElementById('cTime').textContent=h>0?h.toFixed(1)+' hs':'—';}
+}
+function chk(){
+  const ok=st.telar&&st.forma&&st.fmt&&(st.forma==='Plano'||st.cat)&&st.trama&&+document.getElementById('mts').value>0&&+document.getElementById('kg').value>0;
+  document.getElementById('btnSave').disabled=!ok;
+}
+function fmtDate(s){const d=new Date(s);return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+d.toTimeString().slice(0,5)}
+function goForm(){st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:null};
+  document.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));
+  ['mts','kg','fin'].forEach(i=>document.getElementById(i).value='');document.getElementById('ini').value='';
+  document.getElementById('stCod').classList.add('hidden');document.getElementById('cGram').textContent='—';document.getElementById('cTime').textContent='—';
+  document.getElementById('vHoy').classList.add('hidden');document.getElementById('vForm').classList.remove('hidden');
+  document.getElementById('ftHoy').classList.add('hidden');document.getElementById('ftForm').classList.remove('hidden');
+  document.getElementById('hBadge').textContent='CARGAR BOBINA';chk();}
+function goHoy(){document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
+  document.getElementById('ftForm').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');
+  document.getElementById('hBadge').textContent='HOY';}
+async function guardar(){
+  if(!apiListo()){alert('Falta conectar el Sheet (pitec_api.js)');return;}
+  const data={
+    'Nº Telar':st.telar,'Forma':st.forma,'Formato':st.fmt,'Ventana Cristal':st.vent,
+    'Categoría': st.forma==='Plano'?'Plana':st.cat,'Trama':st.trama,
+    'Metros':+document.getElementById('mts').value,'Kg':+document.getElementById('kg').value,
+    'Gramaje':document.getElementById('cGram').textContent.replace(' gr/m²',''),
+    'Fecha Hora Inicio':document.getElementById('ini').value,'Fecha Hora Fin':document.getElementById('fin').value,
+    'Tiempo Producción (hs)':document.getElementById('cTime').textContent.replace(' hs',''),
+    'Observaciones':''
+  };
+  const btn=document.getElementById('btnSave');btn.disabled=true;btn.textContent='Guardando…';
+  try{
+    const r=await apiPost({action:'guardartelares',data});
+    if(r&&r.ok){
+      HOY.unshift({cod:r.codigo,tel:st.telar,forma:st.forma,fmt:st.fmt,cat:data['Categoría'],mts:data.Metros,kg:data.Kg});
+      renderHoy();goHoy();
+    }else alert('No se pudo guardar: '+((r&&r.error)||'error'));
+  }catch(e){alert('Error de conexión: '+e);}
+  btn.textContent='GUARDAR';btn.disabled=false;
+}
+renderHoy();renderTelares();renderFormas();
+</script>
+</body>
+</html>

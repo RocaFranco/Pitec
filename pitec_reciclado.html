@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Reciclado</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:110px}
+  .gline{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center;margin-bottom:9px}
+  .gline label{font-size:14px;font-weight:600}
+  .gline input{padding:11px;text-align:right}
+  .roBox{background:#f3f6fb;border:1px dashed var(--line);border-radius:12px;padding:14px 16px;font-size:13px;color:var(--mut);display:flex;flex-wrap:wrap;gap:18px}
+  .roBox b{color:var(--txt)}
+  .banner{background:#fef3c7;color:#92660a;border:1px solid #fde68a;border-radius:12px;padding:12px 16px;font-weight:600;font-size:13px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>RECICLADO</b></h1>
+  <span class="badge green">CIERRE DE MES</span>
+  <div class="week" style="margin-left:auto">
+    <button onclick="shiftMes(-1)">‹</button><div class="lbl" id="mesLbl">Junio 2026</div><button onclick="shiftMes(1)">›</button></div>
+</header>
+
+<main>
+  <div class="banner" id="banner">⏳ Mes incompleto — podés cargar de a poco a medida que llegan los datos (fardos/reciclado se demoran).</div>
+
+  <div class="step"><div class="lbl"><span class="num">1</span>RECICLADO (Recuperado + puesta en máquina) — a mano</div>
+    <div id="recFields"></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">2</span>STOCK SEMIELABORADO A FIN DE MES</div>
+    <div class="gline"><label>Stock Hilo en Racks (kg)</label><input type="number" id="stockRacks" placeholder="—" oninput="calcDelta()"></div>
+    <div style="font-size:13px;color:var(--acc2-d);font-weight:600" id="delta"></div></div>
+
+  <div class="step"><div class="lbl"><span class="num">3</span>DESPERDICIO — se llena solo (Hiladora + Laminadora)</div>
+    <div class="roBox">
+      <span>Purgado H1: <b>2.100</b></span><span>Purgado H2: <b>220</b></span>
+      <span>Purgado Lam: <b>2.185</b></span><span>Empalmes Lam: <b>2.058</b></span>
+      <span style="width:100%;color:var(--acc2-d)">El sistema calcula % reciclado, % desperdicio y totales.</span>
+    </div></div>
+</main>
+
+<footer>
+  <button class="ghost" onclick="guardar('parcial')" style="color:#92660a">Guardar parcial</button>
+  <button class="save" onclick="guardar('completo')" style="background:var(--acc2)">MARCAR MES COMPLETO</button>
+</footer>
+
+<script src="pitec_api.js"></script>
+<script>
+const REC=['Hilo Trama','Hilo Urdimbre','Hilo Cristal','H1','Lámina H1','H2','Lámina H2','Refile Lam','Tela Lam'];
+const STOCK_ANT=10889; // stock mes anterior (demo)
+function renderFields(){document.getElementById('recFields').innerHTML=REC.map((r,i)=>
+  `<div class="gline"><label>${r} (kg)</label><input type="number" id="r${i}" placeholder="—"></div>`).join('');}
+function calcDelta(){const v=+document.getElementById('stockRacks').value;
+  document.getElementById('delta').textContent=v?('Δ vs mes anterior: '+(v-STOCK_ANT>=0?'+':'')+(v-STOCK_ANT).toLocaleString()+' kg ('+(v>STOCK_ANT?'hizo stock':'consumió stock')+')'):'';}
+let mesIdx=5;const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function shiftMes(d){mesIdx=(mesIdx+d+12)%12;document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';}
+async function guardar(estado){
+  if(!apiListo()){alert('Sin conexión');return;}
+  const data={'Año':2026,'Mes':MESES[mesIdx],'Estado':estado==='completo'?'completo':'incompleto'};
+  REC.forEach((c,i)=>{ const v=document.getElementById('r'+i).value; if(v!=='') data[c]=+v; });
+  const sr=document.getElementById('stockRacks').value; if(sr!=='') data['Stock Hilo Racks']=+sr;
+  const r=await apiPost({action:'guardarreciclado',data});
+  if(r&&r.ok){ document.getElementById('banner').style.display=estado==='completo'?'none':'block';
+    alert('Reciclado '+MESES[mesIdx]+' guardado ('+(r.modo||estado)+') ✔'+(estado!=='completo'?'\nPodés seguir completando después.':'')); }
+  else alert('No se pudo: '+((r&&r.error)||'error'));
+}
+renderFields();
+</script>
+</body>
+</html>

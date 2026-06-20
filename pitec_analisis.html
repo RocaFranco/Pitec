@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Análisis</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<script src="pitec_api.js"></script>
+<style>
+  main{padding-bottom:30px;max-width:none;width:auto;margin:18px 20px}
+  .ctrls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg .b{background:#fff;border:1px solid var(--line);color:var(--txt);font-size:14px;font-weight:600;padding:9px 14px;border-radius:9px;cursor:pointer}
+  .seg .b.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .yr .b.on{background:var(--acc2);border-color:var(--acc2)}
+  .matwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  table.mat{border-collapse:collapse;min-width:100%;font-size:14px;white-space:nowrap}
+  table.mat th,table.mat td{border:1px solid #e3e8f0;padding:9px 13px;text-align:right}
+  table.mat td.totcol,table.mat th.totcol{min-width:110px}
+  .yrsel{font-size:15px;font-weight:600;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--txt);cursor:pointer}
+  table.mat thead th{background:#f0f3f8;color:var(--mut);text-transform:uppercase;font-size:11px;position:sticky;top:0}
+  table.mat td.fmt,table.mat th.fmt{text-align:center;font-weight:800;color:#222}
+  table.mat tr.tot td{font-weight:800;background:#fff7e6;border-top:2px solid #d9a93b}
+  table.mat td.totcol{font-weight:800;background:#fff7e6}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);margin-top:14px}
+  .card h3{font-size:15px;margin-bottom:14px}
+  .bar{display:grid;grid-template-columns:90px 1fr 120px;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+  .bar .lbl{font-weight:700;text-align:right}
+  .bar .track{background:#eef2f8;border-radius:6px;height:20px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px}
+  .bar .v{color:var(--mut)}
+  .loading{color:var(--mut);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>ANÁLISIS</b></h1>
+  <span class="badge" id="metricLbl">Metros</span>
+  <span class="date" id="hoy"></span>
+</header>
+<main>
+  <div class="ctrls">
+    <div class="seg" id="metricSeg"></div>
+    <div style="flex:1"></div>
+    <select class="yrsel" id="yrSel" onchange="setYear(this.value)"></select>
+  </div>
+  <div class="matwrap"><div id="mat" class="loading">Cargando datos del Sheet…</div></div>
+  <div class="card"><h3>Total por mes</h3><div id="chMes"></div></div>
+  <div class="card"><h3>Total por formato (año)</h3><div id="chFmt"></div></div>
+</main>
+<script>
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const M3=MESES.map(m=>m.slice(0,3));
+// colores de planta por formato (base numérica)
+const COL={40:'#c79bc4',47:'#5b8fd6',53:'#b3b3b3',57:'#6aa84f',60:'#e83b3b',71:'#8a4b2a',82:'#e8923b',102:'#ec5ad0',120:'#f0d63a'};
+const txtColor=hex=>{const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return (r*299+g*587+b*114)/1000>150?'#222':'#fff';};
+const tint=(hex,a)=>{const c=hex.replace('#','');return `rgba(${parseInt(c.substr(0,2),16)},${parseInt(c.substr(2,2),16)},${parseInt(c.substr(4,2),16)},${a})`;};
+const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
+const fmt=n=>n?Math.round(n).toLocaleString('es-AR'):'0';
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR');
+
+const METRICS=[
+  {k:'mts',  lbl:'Metros',              src:'tel', val:r=>num(r['Metros']), unit:'m'},
+  {k:'kg',   lbl:'Kg',                  src:'tel', val:r=>num(r['Kg']),     unit:'kg'},
+  {k:'kgpl', lbl:'Kg Para Laminar',     src:'tel', val:r=>num(r['Kg']), filt:r=>String(r['Categoría'])==='Para Laminar', unit:'kg'},
+  {k:'mtslam',lbl:'Mts Laminados',      src:'lam', val:r=>num(r['Metros Reales']), unit:'m'},
+  {k:'matlam',lbl:'Kg Material Laminado',src:'lam',val:r=>num(r['Kg PP'])+num(r['Kg PE'])+num(r['Kg Master']), unit:'kg'},
+];
+let TEL=[], LAM=[], madreFmt={}, metric=METRICS[0], year=null, years=[];
+
+async function init(){
+  if(!apiListo()){document.getElementById('mat').innerHTML='<div class="loading">Sin conexión</div>';return;}
+  try{ [TEL,LAM]=await Promise.all([apiGet({action:'read',sheet:'Telares'}),apiGet({action:'read',sheet:'Laminadora'})]); }
+  catch(e){document.getElementById('mat').innerHTML='<div class="loading">Error leyendo el Sheet</div>';return;}
+  TEL.forEach(r=>{ madreFmt[String(r['Código Bobina']).trim()]=r['Formato']; });
+  years=[...new Set(TEL.map(r=>String(r['Año'])).filter(Boolean))].sort();
+  year=years[years.length-1]||String(new Date().getFullYear());
+  document.getElementById('metricSeg').innerHTML=METRICS.map((m,i)=>`<button class="b${i===0?' on':''}" data-m="${m.k}" onclick="setMetric('${m.k}')">${m.lbl}</button>`).join('');
+  document.getElementById('yrSel').innerHTML=years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('');
+  render();
+}
+function setMetric(k){metric=METRICS.find(m=>m.k===k);document.querySelectorAll('#metricSeg .b').forEach(b=>b.classList.toggle('on',b.dataset.m===k));document.getElementById('metricLbl').textContent=metric.lbl;render();}
+function setYear(y){year=y;render();}
+
+// el período se cuenta por la fecha de CIERRE: Telares=Fecha Hora Fin, Laminadora=Fecha
+function periodo(r){
+  const d = metric.src==='tel' ? r['Fecha Hora Fin'] : r['Fecha'];
+  const dt = d ? new Date(d) : null;
+  if(dt && !isNaN(dt)) return {mi:dt.getMonth(), a:String(dt.getFullYear())};
+  const mi=MESES.indexOf(r['Mes']); return {mi, a:String(r['Año'])}; // fallback columnas
+}
+function dataset(){
+  const rows = metric.src==='tel' ? TEL : LAM;
+  const out=[]; // {fmt, mesIdx, val}
+  rows.forEach(r=>{
+    if(metric.filt && !metric.filt(r)) return;
+    let f = metric.src==='tel' ? r['Formato'] : madreFmt[String(r['Código Madre']).trim()];
+    if(f===''||f==null) return;
+    const p=periodo(r); if(p.a!==String(year) || p.mi<0) return;
+    out.push({fmt:f, mi:p.mi, val:metric.val(r)});
+  });
+  return out;
+}
+function render(){
+  const ds=dataset();
+  const fmts=[...new Set(ds.map(d=>d.fmt))].sort((a,b)=>Number(a)-Number(b));
+  const grid={}; fmts.forEach(f=>grid[f]=Array(12).fill(0));
+  ds.forEach(d=>{ grid[d.fmt][d.mi]+=d.val; });
+  const totMes=Array(12).fill(0); let totAll=0; const totFmt={};
+  fmts.forEach(f=>{ let s=0; grid[f].forEach((v,i)=>{totMes[i]+=v;s+=v;}); totFmt[f]=s; totAll+=s; });
+
+  // matriz
+  let h=`<table class="mat"><thead><tr><th class="fmt">Fto</th>${M3.map(m=>`<th>${m}</th>`).join('')}<th class="totcol">TOTAL</th></tr></thead><tbody>`;
+  fmts.forEach(f=>{ const c=COL[f]||'#ddd'; const tc=txtColor(c);
+    h+=`<tr><td class="fmt" style="background:${c};color:${tc}">${f}</td>`+
+      grid[f].map(v=>`<td style="background:${tint(c,.10)}">${v?fmt(v):''}</td>`).join('')+
+      `<td class="totcol">${fmt(totFmt[f])}</td></tr>`;
+  });
+  h+=`<tr class="tot"><td class="fmt">TOTAL</td>${totMes.map(v=>`<td>${fmt(v)}</td>`).join('')}<td class="totcol">${fmt(totAll)}</td></tr>`;
+  h+=`</tbody></table>`;
+  document.getElementById('mat').innerHTML=h;
+
+  // gráfico total por mes
+  const maxM=Math.max(1,...totMes);
+  document.getElementById('chMes').innerHTML=MESES.map((m,i)=>totMes[i]?
+    `<div class="bar"><div class="lbl">${M3[i]}</div><div class="track"><div class="fill" style="width:${(totMes[i]/maxM*100).toFixed(0)}%;background:var(--acc)"></div></div><div class="v">${fmt(totMes[i])} ${metric.unit}</div></div>`:'').join('')||'<div class="loading">Sin datos</div>';
+  // gráfico total por formato (con su color)
+  const maxF=Math.max(1,...fmts.map(f=>totFmt[f]));
+  document.getElementById('chFmt').innerHTML=fmts.map(f=>
+    `<div class="bar"><div class="lbl">${f}</div><div class="track"><div class="fill" style="width:${(totFmt[f]/maxF*100).toFixed(0)}%;background:${COL[f]||'#999'}"></div></div><div class="v">${fmt(totFmt[f])} ${metric.unit}</div></div>`).join('')||'<div class="loading">Sin datos</div>';
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Producción</title>
+<style>
+  :root{ --bg:#eef2f7; --line:#dde4ee; --txt:#1b2533; --mut:#6b7787; --acc:#2563eb; }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  html,body{height:100%}
+  body{background:var(--bg);display:flex;flex-direction:column}
+  .topbar{background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(20,40,80,.07);flex:0 0 auto}
+  .brand{padding:12px 18px 0;font-size:19px;letter-spacing:.4px;color:var(--txt)}
+  .brand b{color:var(--acc)}
+  .tabs{display:flex;gap:6px;padding:8px 12px;flex-wrap:wrap}
+  .tab{flex:0 0 auto;background:#f3f6fb;border:1px solid var(--line);color:var(--txt);font-size:14px;font-weight:600;
+       padding:8px 12px;border-radius:9px;cursor:pointer;transition:all .12s}
+  .tab:hover{border-color:var(--acc)}
+  .tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .tab .ic{margin-right:6px}
+  #frameWrap{flex:1 1 auto;position:relative}
+  .frame{position:absolute;inset:0;width:100%;height:100%;border:none;background:var(--bg)}
+</style>
+</head>
+<body>
+  <div id="pinGate" style="position:fixed;inset:0;background:#eef2f7;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:system-ui,Segoe UI,Roboto,sans-serif">
+    <div style="background:#fff;border:1px solid #dde4ee;border-radius:16px;box-shadow:0 4px 24px rgba(20,40,80,.12);padding:34px 30px;width:300px;text-align:center">
+      <div style="font-size:20px;font-weight:700;color:#1b2533;margin-bottom:4px">PITEC · <span style="color:#2563eb">PRODUCCIÓN</span></div>
+      <div style="color:#6b7787;font-size:13px;margin-bottom:18px">Ingresá la clave de fábrica</div>
+      <input id="pinInput" type="password" inputmode="numeric" placeholder="Clave" autocomplete="off"
+        style="width:100%;padding:12px;font-size:18px;text-align:center;border:1px solid #dde4ee;border-radius:10px;letter-spacing:3px"
+        onkeydown="if(event.key==='Enter')tryPin()">
+      <div id="pinErr" style="color:#dc2626;font-size:13px;height:18px;margin-top:8px"></div>
+      <button onclick="tryPin()" style="width:100%;margin-top:6px;padding:12px;font-size:16px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer">Entrar</button>
+    </div>
+  </div>
+  <div class="topbar">
+    <div class="brand">PITEC · <b>PRODUCCIÓN</b></div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div id="frameWrap"></div>
+
+<script>
+const TABS=[
+  ['🗓️','Parte Semanal','pitec_parte_semanal.html'],
+  ['🧵','Telares','pitec_telares.html'],
+  ['🌀','Laminadora','pitec_laminadora.html'],
+  ['🧶','Hiladora','pitec_hiladora.html'],
+  ['🚚','Entregas','pitec_entregas.html'],
+  ['📥','Ingreso','pitec_ingreso.html'],
+  ['📦','Fardos','pitec_fardos.html'],
+  ['🧱','MP','pitec_mp.html'],
+  ['📊','Stock','pitec_stock.html'],
+  ['📈','Análisis','pitec_analisis.html'],
+  ['📉','Reportes','pitec_reportes.html'],
+  ['♻️','Reciclado','pitec_reciclado.html'],
+];
+const tabsEl=document.getElementById('tabs'), wrap=document.getElementById('frameWrap'), frames={};
+function go(i){
+  [...tabsEl.children].forEach((t,j)=>t.classList.toggle('on',j===i));
+  Object.values(frames).forEach(f=>f.style.display='none');
+  if(!frames[i]){                                   // se crea 1 sola vez y queda viva (no se recarga)
+    const f=document.createElement('iframe');
+    f.className='frame'; f.src=TABS[i][2]+'?v='+Date.now(); f.title=TABS[i][1];
+    wrap.appendChild(f); frames[i]=f;
+  }
+  frames[i].style.display='block';
+  location.hash=i;
+}
+function initApp(){
+  tabsEl.innerHTML=TABS.map((t,i)=>`<button class="tab" onclick="go(${i})"><span class="ic">${t[0]}</span>${t[1]}</button>`).join('');
+  go(location.hash ? Number(location.hash.slice(1)) : 1); // arranca en Telares
+}
+
+/* ===== Clave de fábrica (filtra curiosos; no es seguridad fuerte) ===== */
+const PIN='1234';   // <<< CAMBIÁ ACÁ la clave de la fábrica
+function unlock(){ document.getElementById('pinGate').style.display='none'; initApp(); }
+function tryPin(){
+  const v=document.getElementById('pinInput').value.trim();
+  if(v===PIN){ try{sessionStorage.setItem('pitec_ok','1');}catch(e){} unlock(); }
+  else { document.getElementById('pinErr').textContent='Clave incorrecta'; document.getElementById('pinInput').value=''; }
+}
+if(sessionStorage.getItem('pitec_ok')==='1'){ unlock(); }
+else { setTimeout(()=>{const i=document.getElementById('pinInput'); if(i) i.focus();},100); }
+</script>
+</body>
+</html>
