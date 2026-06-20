@@ -40,6 +40,7 @@
   </div>
   <div id="frameWrap"></div>
 
+<script src="pitec_api.js"></script>
 <script>
 const TABS=[
   ['🗓️','Parte Semanal','pitec_parte_semanal.html'],
@@ -72,8 +73,18 @@ function initApp(){
   go(location.hash ? Number(location.hash.slice(1)) : 1); // arranca en Telares
 }
 
-/* ===== Clave de fábrica (filtra curiosos; no es seguridad fuerte) ===== */
-const PIN='1234';   // <<< CAMBIÁ ACÁ la clave de la fábrica
+/* ===== Clave de fábrica (filtra curiosos; no es seguridad fuerte) =====
+   La clave vive en el Sheet (pestaña "Config", fila Clave=PIN). Franco la edita ahí cuando quiera.
+   Si no se puede leer (o no existe la pestaña), usa 2102 de respaldo. */
+let PIN='2102';   // respaldo por si no se lee el Sheet
+(async function cargarPin(){
+  try{
+    const c = await apiGet({action:'read',sheet:'Config'});
+    const row = (c||[]).find(r => String(r['Clave']||'').trim().toUpperCase()==='PIN');
+    const v = row ? String(row['Valor']||'').trim() : '';
+    if(v) PIN = v;
+  }catch(e){ /* sin conexión → queda el respaldo */ }
+})();
 function unlock(){ document.getElementById('pinGate').style.display='none'; initApp(); }
 function tryPin(){
   const v=document.getElementById('pinInput').value.trim();
