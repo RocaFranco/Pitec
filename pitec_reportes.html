@@ -26,13 +26,13 @@
   .verbtn{background:var(--acc2);color:#fff;border:none;font-size:14px;font-weight:700;padding:10px 20px;border-radius:9px;cursor:pointer}
   .verbtn:hover{filter:brightness(1.05)}
   .chartbox{margin-top:14px}
-  .chartbox svg{width:100%;height:auto;display:block}
+  .chartbox svg{width:100%;height:auto;display:block;max-height:440px}
   .loading{color:var(--mut);padding:20px;text-align:center}
 </style>
 </head>
 <body>
 <header>
-  <h1>PITEC · <b>REPORTES</b></h1>
+  <h1>PITEC · <b>MÉTRICAS PLANTA</b></h1>
   <span class="badge green">MENSUAL</span>
   <span class="date" id="hoy"></span>
 </header>
@@ -163,7 +163,7 @@ function verGrafico(){
 // motor de gráfico en SVG (sin librerías): barras verticales o línea
 function buildSVG(labels,values,col,tipo,titulo){
   if(!values.some(v=>v>0)) return '<div class="loading">Sin datos para esa columna y año</div>';
-  const W=1000,H=380, mL=80,mR=20,mT=36,mB=54;
+  const W=Math.max(360,Math.round((document.getElementById('chart').clientWidth)||1000)),H=360, mL=80,mR=20,mT=36,mB=54;
   const pW=W-mL-mR, pH=H-mT-mB, baseY=mT+pH, N=values.length;
   const vmax=Math.max(...values)*1.12 || 1;
   const axfmt = col.kind==='pct' ? (x=>(x*100).toFixed(1).replace('.',',')+'%') : (x=> x>=1000?Math.round(x/1000)+'k':Math.round(x).toString());
@@ -195,6 +195,17 @@ function buildSVG(labels,values,col,tipo,titulo){
   return s;
 }
 init();
+// re-dibuja el gráfico cuando cambia el ANCHO del contenedor (zoom, resize, iframe) → altura siempre cómoda
+(function(){ const el=document.getElementById('chart'); if(!el) return;
+  let lastW=0, t;
+  const redibujar=()=>{ clearTimeout(t); t=setTimeout(()=>{ if(ALL.length) verGrafico(); },120); };
+  // 1) resize/zoom de la ventana (el zoom del navegador dispara 'resize')
+  window.addEventListener('resize', redibujar);
+  // 2) cambio de ancho del contenedor (iframe, toggle mostrar/ocultar) vía ResizeObserver
+  if(window.ResizeObserver){
+    new ResizeObserver(es=>{ const w=Math.round(es[0].contentRect.width); if(w && w!==lastW){ lastW=w; redibujar(); } }).observe(el);
+  }
+})();
 </script>
 </body>
 </html>

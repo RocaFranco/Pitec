@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Métricas</title>
+<style>
+  :root{ --bg:#eef2f7; --line:#dde4ee; --txt:#1b2533; --mut:#6b7787; --acc:#2563eb; }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  html,body{height:100%}
+  body{background:var(--bg);display:flex;flex-direction:column}
+  .seg{display:flex;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .seg .b{background:#f3f6fb;border:1px solid var(--line);color:var(--txt);font-size:15px;font-weight:700;
+          padding:11px 20px;border-radius:10px;cursor:pointer;transition:all .12s}
+  .seg .b:hover{border-color:var(--acc)}
+  .seg .b.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  #wrap{flex:1 1 auto;position:relative}
+  .frame{position:absolute;inset:0;width:100%;height:100%;border:none;background:var(--bg)}
+</style>
+</head>
+<body>
+  <div class="seg" id="seg"></div>
+  <div id="wrap"></div>
+<script>
+const VIEWS=[
+  ['📐','Métricas por Fto','pitec_analisis.html'],
+  ['🏭','Métricas Planta','pitec_reportes.html'],
+];
+const seg=document.getElementById('seg'), wrap=document.getElementById('wrap'), frames={};
+function go(i){
+  [...seg.children].forEach((b,j)=>b.classList.toggle('on',j===i));
+  Object.values(frames).forEach(f=>f.style.display='none');
+  if(!frames[i]){ const f=document.createElement('iframe'); f.className='frame'; f.src=VIEWS[i][2]+'?v='+Date.now(); f.title=VIEWS[i][1]; wrap.appendChild(f); frames[i]=f; }
+  frames[i].style.display='block';
+}
+seg.innerHTML=VIEWS.map((v,i)=>`<button class="b" onclick="go(${i})"><span>${v[0]}</span> ${v[1]}</button>`).join('');
+go(0);
+</script>
+</body>
+</html>
