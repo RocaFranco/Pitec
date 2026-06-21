@@ -55,7 +55,7 @@
     <div class="num2"><div class="f"><input type="number" id="leg1" placeholder="Legajo 1"></div><div class="f"><input type="number" id="leg2" placeholder="Legajo 2"></div></div></div>
 
   <div class="step"><div class="lbl"><span class="num">2</span>PARÁMETROS</div>
-    <div class="num2"><div class="f"><input type="number" id="caudal" placeholder="Vel. caudal"></div><div class="f"><input type="number" id="ancho" placeholder="Ancho mm"></div><div class="f"><input type="number" id="cuch" placeholder="Unidades cuchillas"></div></div>
+    <div class="num2"><div class="f"><input type="number" id="caudal" placeholder="Vel. caudal"></div><div class="f"><input type="number" id="ancho" placeholder="Ancho mm"></div></div>
     <div class="num2" style="margin-top:10px"><div class="f"><input type="number" id="e1e" placeholder="1er Estir. Elev."></div><div class="f"><input type="number" id="e1t" placeholder="1er Estir. Tracc."></div>
       <div class="f"><input type="number" id="e2" placeholder="2do Estir."></div><div class="f"><input type="number" id="e3" placeholder="3er Estir."></div></div></div>
 
@@ -73,7 +73,9 @@
   <div class="step"><div class="lbl"><span class="num">5</span>MATERIAL AGREGADO (grumo de esta máquina)</div>
     <div id="matYa" class="mut" style="font-size:13px;margin-bottom:10px"></div>
     <div class="hint" style="margin-bottom:8px">Cargá solo lo que agregás ahora. Se SUMA a lo de este turno.</div>
-    <div id="matRows"></div></div>
+    <div id="matRows"></div>
+    <div style="margin-top:14px"><div class="lbl" style="font-size:13px;color:var(--mut);margin-bottom:6px">Consumo de cuchillas</div>
+      <input type="number" id="cuch" placeholder="Cuchillas consumidas este turno"></div></div>
 
   <div class="step"><div class="lbl"><span class="num">6</span>OBSERVACIONES</div>
     <input type="text" id="obs" placeholder="Opcional"></div>

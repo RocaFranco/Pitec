@@ -8,10 +8,14 @@
 <script src="pitec_api.js"></script>
 <style>
   main{padding-bottom:30px;max-width:none;width:auto;margin:18px 20px}
-  .tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px}
+  .vtabs{display:flex;gap:8px;margin-bottom:14px}
+  .vtab{background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:700;padding:11px 18px;border-radius:11px;cursor:pointer;font-size:14px}
+  .vtab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px}
   .tot .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
   .tot .v{font-size:26px;font-weight:800;color:var(--acc-d)} .tot .l{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
-  .tot .kpi.bad .v{color:var(--bad)}
+  .tot .items{margin-top:9px;font-size:12px;color:var(--txt);line-height:1.7}
+  .tot .items b{color:var(--acc-d)}
   .buscar{width:100%;max-width:360px;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;background:#fff}
   .matwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
   table.mp{border-collapse:collapse;width:100%;font-size:14px;white-space:nowrap}
@@ -22,8 +26,11 @@
   table.mp td.cat{color:var(--mut);font-size:13px}
   table.mp td.stk{font-weight:800}
   table.mp tr.neg td.stk{color:var(--bad)}
-  table.mp tr.tot td{font-weight:800;background:#fff7e6;border-top:2px solid #d9a93b}
   .loading{color:var(--mut);padding:20px;text-align:center}
+  .ctabs{display:flex;gap:8px;margin-bottom:14px}
+  .ctab{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:700;padding:14px;border-radius:12px;cursor:pointer;text-align:center;font-size:15px}
+  .ctab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .ctab.on.ret{background:var(--bad);border-color:var(--bad)}
 </style>
 </head>
 <body>
@@ -33,19 +40,67 @@
   <span class="date" id="hoy"></span>
 </header>
 <main>
-  <div class="tot" id="kpis"></div>
-  <input class="buscar" id="q" placeholder="🔍 Buscar código…" oninput="render()">
-  <div class="matwrap"><div id="tabla" class="loading">Calculando stock desde el Sheet…</div></div>
+  <div class="vtabs">
+    <div class="vtab on" id="vtStock" onclick="setView('stock')">📊 Stock</div>
+    <div class="vtab" id="vtCarga" onclick="setView('carga')">📥📤 Entradas y Salidas MP</div>
+  </div>
+
+  <!-- ===== STOCK ===== -->
+  <div id="vStock">
+    <div class="tot" id="kpis"></div>
+    <input class="buscar" id="q" placeholder="🔍 Buscar código…" oninput="renderStock()">
+    <div class="matwrap"><div id="tabla" class="loading">Calculando stock desde el Sheet…</div></div>
+  </div>
+
+  <!-- ===== CARGA (Entradas y Salidas MP) ===== -->
+  <div id="vCarga" class="hidden">
+    <div class="ctabs">
+      <div class="ctab on" id="cEnt" onclick="setCarga('ent')">📥 Entrada de MP</div>
+      <div class="ctab" id="cRet" onclick="setCarga('ret')">📤 Salida de MP</div>
+    </div>
+    <div id="paneEnt">
+      <div class="step"><div class="lbl">Cargar entrada (compra)</div>
+        <div class="num2">
+          <div class="f"><input type="date" id="eFecha"></div>
+          <div class="f"><select id="eCod"></select></div>
+          <div class="f"><input type="number" id="eKg" placeholder="Kg"></div>
+          <div class="f"><input type="text" id="eProv" placeholder="Proveedor (opcional)"></div>
+          <button class="save" style="flex:0 0 auto" onclick="addEnt()">＋ Cargar</button></div></div>
+      <h3 class="sec">Últimas entradas</h3>
+      <div class="listbox"><div class="lh">Fecha · Código · Kg</div><div id="listEnt"></div></div>
+    </div>
+    <div id="paneRet" class="hidden">
+      <div class="step"><div class="lbl">Cargar salida (retiro / Quilmes / devolución)</div>
+        <div class="num2">
+          <div class="f"><input type="date" id="rFecha"></div>
+          <div class="f"><select id="rCod"></select></div>
+          <div class="f"><input type="number" id="rKg" placeholder="Kg"></div>
+          <div class="f"><input type="text" id="rQuien" placeholder="Retirado por / Nota"></div>
+          <button class="save" style="flex:0 0 auto;background:var(--bad)" onclick="addRet()">＋ Cargar</button></div></div>
+      <h3 class="sec">Últimas salidas</h3>
+      <div class="listbox"><div class="lh">Fecha · Código · Kg · Nota</div><div id="listRet"></div></div>
+    </div>
+  </div>
 </main>
 <script>
 document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
 const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
 const fmt=n=>Math.round(n).toLocaleString('es-AR');
 const cdkey=v=>String(v||'').trim();
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+const fdate=v=>{const d=new Date(v);return isNaN(d)?String(v||''):d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});};
 const ORD=['PP','PE','Master','Carbonato','Recuperado','Master/Aditivo'];
-let ROWS=[];
+let ROWS=[], MP=[], ENT=[], RET=[], consLam={}, consHil={};
 
-async function init(){
+function setView(v){const s=v==='stock';
+  document.getElementById('vtStock').classList.toggle('on',s);document.getElementById('vtCarga').classList.toggle('on',!s);
+  document.getElementById('vStock').classList.toggle('hidden',!s);document.getElementById('vCarga').classList.toggle('hidden',s);}
+function setCarga(t){const e=t==='ent';
+  document.getElementById('cEnt').classList.toggle('on',e);document.getElementById('cRet').classList.toggle('on',!e);
+  document.getElementById('cRet').classList.toggle('ret',!e);
+  document.getElementById('paneEnt').classList.toggle('hidden',!e);document.getElementById('paneRet').classList.toggle('hidden',e);}
+
+async function loadAll(){
   if(!apiListo()){document.getElementById('tabla').innerHTML='<div class="loading">Sin conexión</div>';return;}
   let cat,ent,ret,lam,h1,h2;
   try{ [cat,ent,ret,lam,h1,h2]=await Promise.all([
@@ -62,41 +117,67 @@ async function init(){
   const add=(o,c,k)=>{ c=cdkey(c); if(c) o[c]=(o[c]||0)+num(k); };
   (ent||[]).forEach(r=>add(entra,r['Código MP'],r['Kg']));
   (ret||[]).forEach(r=>add(retiro,r['Código MP'],r['Kg']));
-  const PARES_LAM=[['Código PP','Kg PP'],['Código PE','Kg PE'],['Código Master','Kg Master'],['Código Reciclado','Kg Reciclado']];
-  const PARES_HIL=[['Código Carbonato','Kg Carbonato'],['Código Master','Kg Master'],['Código PP','Kg PP'],['Código Reciclado','Kg Reciclado']];
-  (lam||[]).forEach(r=>PARES_LAM.forEach(p=>add(cons,r[p[0]],r[p[1]])));
-  [h1,h2].forEach(hh=>(hh||[]).forEach(r=>PARES_HIL.forEach(p=>add(cons,r[p[0]],r[p[1]]))));
+  // consumo por código + por máquina/categoría
+  const LAM=[['Código PP','Kg PP','PP'],['Código PE','Kg PE','PE'],['Código Master','Kg Master','Master'],['Código Reciclado','Kg Reciclado','Recuperado']];
+  const HIL=[['Código Carbonato','Kg Carbonato','Carbonato'],['Código Master','Kg Master','Master'],['Código PP','Kg PP','PP'],['Código Reciclado','Kg Reciclado','Recuperado']];
+  consLam={}; consHil={};
+  (lam||[]).forEach(r=>LAM.forEach(p=>{const k=num(r[p[1]]); add(cons,r[p[0]],k); if(k)consLam[p[2]]=(consLam[p[2]]||0)+k;}));
+  [h1,h2].forEach(hh=>(hh||[]).forEach(r=>HIL.forEach(p=>{const k=num(r[p[1]]); add(cons,r[p[0]],k); if(k)consHil[p[2]]=(consHil[p[2]]||0)+k;})));
 
   const cods=[...new Set([...Object.keys(catg),...Object.keys(entra),...Object.keys(retiro),...Object.keys(cons)])];
-  ROWS=cods.map(c=>{const e=entra[c]||0,co=cons[c]||0,re=retiro[c]||0;
-    return {cod:c, cat:catg[c]||'(sin cat.)', e, c:co, r:re, stock:e-co-re};});
-  // orden: por categoría (según ORD) y dentro por código
+  ROWS=cods.map(c=>{const e=entra[c]||0,co=cons[c]||0,re=retiro[c]||0; return {cod:c, cat:catg[c]||'(sin cat.)', e, c:co, r:re, stock:e-co-re};});
   ROWS.sort((a,b)=>{const ia=ORD.indexOf(a.cat),ib=ORD.indexOf(b.cat);return (ia<0?9:ia)-(ib<0?9:ib) || a.cod.localeCompare(b.cod);});
-  render();
-}
 
-function render(){
+  // carga: dropdown + recientes
+  MP=(cat||[]).map(r=>cdkey(r['Código'])).filter(Boolean);
+  fillSel('eCod');fillSel('rCod');
+  ENT=(ent||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),cod:r['Código MP'],kg:num(r['Kg'])}));
+  RET=(ret||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),cod:r['Código MP'],kg:num(r['Kg']),q:r['Retirado por / Nota']||'—'}));
+  renderEnt();renderRet();
+  renderStock();
+}
+function renderStock(){
   const q=(document.getElementById('q').value||'').trim().toUpperCase();
   const rows=ROWS.filter(r=>!q || r.cod.toUpperCase().includes(q) || r.cat.toUpperCase().includes(q));
-  // KPIs (sobre TODOS, no filtrado)
   const totStock=ROWS.reduce((a,r)=>a+r.stock,0);
-  const conStock=ROWS.filter(r=>r.stock>0).length;
-  const negs=ROWS.filter(r=>r.stock<0).length;
+  const totLam=Object.values(consLam).reduce((a,b)=>a+b,0);
+  const totHil=Object.values(consHil).reduce((a,b)=>a+b,0);
+  const items=o=>['PP','PE','Master','Carbonato','Recuperado'].filter(k=>o[k]).map(k=>`${k} <b>${fmt(o[k])}</b>`).join(' · ')||'—';
   document.getElementById('kpis').innerHTML=
     `<div class="kpi"><div class="v">${fmt(totStock)}</div><div class="l">Kg en stock</div></div>
-     <div class="kpi"><div class="v">${conStock}</div><div class="l">Códigos con stock</div></div>
-     <div class="kpi ${negs?'bad':''}"><div class="v">${negs}</div><div class="l">En negativo (revisar)</div></div>`;
+     <div class="kpi"><div class="v">${fmt(totLam)}</div><div class="l">Consumo Laminadora</div><div class="items">${items(consLam)}</div></div>
+     <div class="kpi"><div class="v">${fmt(totHil)}</div><div class="l">Consumo Hiladora</div><div class="items">${items(consHil)}</div></div>`;
   if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
-  let h=`<table class="mp"><thead><tr><th class="l">Código</th><th class="l">Categoría</th><th>Entradas</th><th>Consumo</th><th>Retiros</th><th>STOCK</th></tr></thead><tbody>`;
+  let h=`<table class="mp"><thead><tr><th class="l">Código</th><th class="l">Categoría</th><th>Entradas</th><th>Consumo</th><th>Salidas</th><th>STOCK</th></tr></thead><tbody>`;
   rows.forEach(r=>{ h+=`<tr class="${r.stock<0?'neg':''}"><td class="l cod">${r.cod}</td><td class="l cat">${r.cat}</td>`+
     `<td>${fmt(r.e)}</td><td>${fmt(r.c)}</td><td>${fmt(r.r)}</td><td class="stk">${fmt(r.stock)}${r.stock<0?' ⚠️':''}</td></tr>`; });
-  // total (de lo filtrado)
-  const te=rows.reduce((a,r)=>a+r.e,0),tc=rows.reduce((a,r)=>a+r.c,0),tr=rows.reduce((a,r)=>a+r.r,0),ts=rows.reduce((a,r)=>a+r.stock,0);
-  h+=`<tr class="tot"><td class="l">TOTAL</td><td></td><td>${fmt(te)}</td><td>${fmt(tc)}</td><td>${fmt(tr)}</td><td>${fmt(ts)}</td></tr>`;
   h+='</tbody></table>';
   document.getElementById('tabla').innerHTML=h;
 }
-init();
+
+// ===== carga =====
+function fillSel(id){document.getElementById(id).innerHTML='<option value="">— Código MP —</option>'+MP.map(m=>`<option>${m}</option>`).join('');}
+function renderEnt(){document.getElementById('listEnt').innerHTML=ENT.map(x=>
+  `<div class="li"><span>${x.f} · <b>${x.cod}</b></span><span class="mut">${fmt(x.kg)} kg</span></div>`).join('')||'<div class="li mut">Sin entradas</div>';}
+function renderRet(){document.getElementById('listRet').innerHTML=RET.map(x=>
+  `<div class="li"><span>${x.f} · <b>${x.cod}</b></span><span class="mut">${fmt(x.kg)} kg · ${x.q}</span></div>`).join('')||'<div class="li mut">Sin salidas</div>';}
+async function addEnt(){const c=document.getElementById('eCod').value,k=+document.getElementById('eKg').value;
+  if(!c||!(k>0)){alert('Elegí código y kg');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const fecha=document.getElementById('eFecha').value;
+  const r=await apiPost({action:'append',sheet:'Entrada MP',data:{'Fecha':fecha,'Código MP':c,'Kg':k,'Proveedor':document.getElementById('eProv').value}});
+  if(r&&r.ok){document.getElementById('eKg').value='';document.getElementById('eProv').value='';loadAll();}
+  else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
+async function addRet(){const c=document.getElementById('rCod').value,k=+document.getElementById('rKg').value;
+  if(!c||!(k>0)){alert('Elegí código y kg');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const fecha=document.getElementById('rFecha').value,q=document.getElementById('rQuien').value;
+  const r=await apiPost({action:'append',sheet:'Retiro MP',data:{'Fecha':fecha,'Código MP':c,'Kg':k,'Retirado por / Nota':q}});
+  if(r&&r.ok){document.getElementById('rKg').value='';document.getElementById('rQuien').value='';loadAll();}
+  else alert('No se pudo guardar: '+((r&&r.error)||'error'));}
+
+document.getElementById('eFecha').value=todayISO(); document.getElementById('rFecha').value=todayISO();
+loadAll();
 </script>
 </body>
 </html>
