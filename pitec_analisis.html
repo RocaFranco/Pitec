@@ -62,7 +62,7 @@ document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR'
 const METRICS=[
   {k:'mts',  lbl:'Metros',              src:'tel', val:r=>num(r['Metros']), unit:'m'},
   {k:'kg',   lbl:'Kg',                  src:'tel', val:r=>num(r['Kg']),     unit:'kg'},
-  {k:'kgpl', lbl:'Kg Para Laminar',     src:'tel', val:r=>num(r['Kg']), filt:r=>String(r['Categoría'])==='Para Laminar', unit:'kg'},
+  {k:'kgpl', lbl:'Kg Para Laminar',     src:'tel', val:r=>num(r['Kg']), filt:r=>String(r['Forma'])!=='Plano'&&String(r['Categoría'])==='Para Laminar', unit:'kg'},
   {k:'mtslam',lbl:'Mts Laminados',      src:'lam', val:r=>num(r['Metros Reales']), unit:'m'},
   {k:'matlam',lbl:'Kg Material Laminado',src:'lam',val:r=>num(r['Kg PP'])+num(r['Kg PE'])+num(r['Kg Master']), unit:'kg'},
 ];

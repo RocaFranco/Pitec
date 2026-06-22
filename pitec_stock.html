@@ -52,7 +52,7 @@ async function cargar(){
 
   // stock = propias (Telares) + hijas laminadas no entregadas + externas
   const stock=[];
-  (tel||[]).forEach(r=>{ if(enStock(String(r['Código Bobina']).trim(),r['Estado'])) stock.push({cat:r['Categoría']||'(sin cat.)',fmt:r['Formato']||'?',mts:num(r['Metros']),kg:num(r['Kg'])}); });
+  (tel||[]).forEach(r=>{ if(enStock(String(r['Código Bobina']).trim(),r['Estado'])){ const cat=String(r['Forma'])==='Plano'?'Plana':(r['Categoría']||'(sin cat.)'); stock.push({cat,fmt:r['Formato']||'?',mts:num(r['Metros']),kg:num(r['Kg'])}); } });
   (lam||[]).forEach(r=>{ const cod=String(r['Código Hija']).trim(); if(cod && !entregadas.has(cod)) stock.push({cat:'Laminada',fmt:madreFmt[String(r['Código Madre']).trim()]||'?',mts:num(r['Metros Reales']),kg:num(r['Kg Laminados'])}); });
   (ext||[]).forEach(r=>{ if(enStock(String(r['Código']).trim(),r['Estado'])) stock.push({cat:'Externa',fmt:r['Proveedor']||'—',mts:num(r['Metros']),kg:num(r['Kg'])}); });
 

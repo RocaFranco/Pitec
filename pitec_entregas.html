@@ -148,7 +148,7 @@ async function loadStock(){
     const enStock=(cod,est)=>{est=String(est||'').toLowerCase();return est.indexOf('entreg')<0&&est.indexOf('lamin')<0&&!entregadas.has(cod)&&!laminadas.has(cod);};
     const mFmt={},mForma={}; (tel||[]).forEach(r=>{const c=String(r['Código Bobina']).trim();mFmt[c]=r['Formato'];mForma[c]=r['Forma'];});
     const st=[];
-    (tel||[]).forEach(r=>{const cod=String(r['Código Bobina']).trim(); if(enStock(cod,r['Estado'])) st.push({cod,forma:r['Forma'],cat:r['Categoría']||'(sin cat.)',fmt:Number(r['Formato']),mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});});
+    (tel||[]).forEach(r=>{const cod=String(r['Código Bobina']).trim(); if(enStock(cod,r['Estado'])){const cat=String(r['Forma'])==='Plano'?'Plana':(r['Categoría']||'(sin cat.)'); st.push({cod,forma:r['Forma'],cat,fmt:Number(r['Formato']),mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});}});
     (lam||[]).forEach(r=>{const cod=String(r['Código Hija']).trim(); const madre=String(r['Código Madre']).trim(); if(cod && !entregadas.has(cod)) st.push({cod,forma:mForma[madre]||'Tubular',cat:'Laminada',fmt:Number(mFmt[madre])||'?',mts:Number(r['Metros Reales'])||0,kg:Number(r['Kg Laminados'])||0});});
     (ext||[]).forEach(r=>{const cod=String(r['Código']).trim(); if(enStock(cod,r['Estado'])) st.push({cod,forma:'Externa',cat:'Externa',fmt:r['Proveedor']||'—',mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});});
     STOCK=st;
