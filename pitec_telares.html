@@ -87,7 +87,7 @@ const CAT_FORMATOS=[
  {forma:'Transparente',fmt:57,vent:'No',letra:'J',ult:18},
 ];
 const FORMAS={'Tubular':[40,47,53,57,60],'Plano':[71,82,120,102],'Transparente':[40,47,57]};
-let ULT_FIN={};   // último fin por telar (del Sheet)
+let ULT_FIN={}, ULT_FMT={};   // último fin y último formato por telar (del Sheet)
 let HOY=[];       // bobinas cargadas hoy (del Sheet)
 let st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:null};
 function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
@@ -99,8 +99,8 @@ async function loadData(){
     const tel=await apiGet({action:'read',sheet:'Telares'});
     HOY=(tel||[]).filter(r=>esHoy(r['Fecha Hora Fin']||r['Fecha Hora Inicio']))
       .map(r=>({cod:r['Código Bobina'],tel:r['Nº Telar'],forma:r['Forma'],fmt:r['Formato'],cat:r['Categoría'],mts:+r['Metros']||0,kg:+r['Kg']||0})).reverse();
-    ULT_FIN={};
-    (tel||[]).forEach(r=>{ const t=r['Nº Telar'],f=r['Fecha Hora Fin']; if(t&&f){ const d=new Date(f); if(!isNaN(d)){ const cur=ULT_FIN[t]?new Date(ULT_FIN[t]):null; if(!cur||d>cur) ULT_FIN[t]=toInput(f); } } });
+    ULT_FIN={}; ULT_FMT={}; const _ud={};
+    (tel||[]).forEach(r=>{ const t=r['Nº Telar'],f=r['Fecha Hora Fin']; if(t&&f){ const d=new Date(f); if(!isNaN(d)){ if(!_ud[t]||d>_ud[t]){ _ud[t]=d; ULT_FIN[t]=toInput(f); ULT_FMT[t]=r['Formato']; } } } });
     renderHoy();
   }catch(e){ renderHoy(); }
 }
@@ -120,7 +120,8 @@ function renderFormas(){
    `<div class="opt" data-f="${f}" onclick="setForma('${f}')">${f}</div>`).join('');
 }
 function setTelar(t){st.telar=t;mark('telares','data-t',t);
-  const s=ULT_FIN[t];document.getElementById('iniSug').textContent=s?('Sugerido: fin del último telar '+t+' → '+fmtDate(s)):'';
+  const s=ULT_FIN[t],fto=ULT_FMT[t];
+  document.getElementById('iniSug').textContent=s?('Sugerido: fin del último telar '+t+' → '+fmtDate(s)+(fto?'   ·   última bobina: Fto '+fto:'')):'';
   if(s)document.getElementById('ini').value=s; chk();}
 function setForma(f){st.forma=f;st.fmt=null;st.vent='No';st.cat=null;mark('formas','data-f',f);
   // categoría solo Tubular/Transparente (Plano = nunca se lamina)
