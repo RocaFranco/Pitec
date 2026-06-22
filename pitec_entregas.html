@@ -111,7 +111,8 @@ function pickFmt(f){fmtSel=String(f);
   renderStock();document.getElementById('stStock').classList.remove('hidden');
 }
 function renderStock(){
-  const list=STOCK.filter(b=>b.cat===catSel&&String(b.fmt)===String(fmtSel));
+  const list=STOCK.filter(b=>b.cat===catSel&&String(b.fmt)===String(fmtSel))
+    .sort((a,b)=>String(a.cod).localeCompare(String(b.cod),undefined,{numeric:true}));
   document.getElementById('stockSub').textContent=`(${catSel} · Fto ${fmtSel})`;
   document.getElementById('stockList').innerHTML=list.map(b=>
    `<div class="stockrow" onclick="addBob('${b.cod}')"><span class="cod">${b.cod}</span><span class="det">${b.forma} · ${b.mts.toLocaleString()} m · ${b.kg} kg</span><span class="plus">＋</span></div>`).join('')
