@@ -41,8 +41,11 @@
 
 <main id="vHoy">
   <button class="big" onclick="goForm()">＋  NUEVA ENTREGA</button>
-  <h3 class="sec">Últimas entregas (remitos)</h3>
-  <div class="listbox"><div class="lh">Remito · Destino · Total</div><div id="remitos"></div></div>
+  <h3 class="sec">Editar una entrega</h3>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <input id="qRemito" type="number" placeholder="N° de remito…" style="flex:1;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:10px;background:#fff">
+    <button class="ghost" onclick="buscarRemito()">Buscar</button></div>
+  <div class="listbox"><div class="lh">Últimas entregas (tocá para editar)</div><div id="remitos"></div></div>
 </main>
 
 <main id="vForm" class="hidden">
@@ -64,7 +67,7 @@
 </main>
 
 <footer id="ftHoy"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Tocá “Nueva entrega” para empezar</span></footer>
-<footer id="ftForm" class="hidden"><button class="ghost" onclick="goHoy()">✕</button><button class="ghost" id="btnPrint" onclick="imprimir('PREVIA')">🖨️ Imprimir</button><button class="save" id="btnConf" onclick="confirmar()" disabled>CONFIRMAR → ÁLAMO</button></footer>
+<footer id="ftForm" class="hidden"><button class="ghost" onclick="goHoy()">✕</button><button class="ghost" id="btnPrint" onclick="imprimir()">🖨️ Imprimir</button><button class="save" id="btnConf" onclick="confirmar()" disabled>CONFIRMAR → ÁLAMO</button></footer>
 
 <div id="printArea"></div>
 
@@ -89,11 +92,26 @@ let STOCK=[
  {cod:'G636',forma:'Plano',cat:'Plana',fmt:102,mts:10000,kg:550},
 ];
 let REMITOS=[];
-let bobs=[], catSel=null, fmtSel=null, nextNota=5400;
+let bobs=[], catSel=null, fmtSel=null, nextNota=5400, editRemito=null;
 
 const uniq=a=>[...new Set(a)];
 function renderRemitos(){document.getElementById('remitos').innerHTML=REMITOS.map(r=>
-  `<div class="li"><span class="cod">Remito ${r.nota}</span><span class="mut">${r.destino} · ${r.mts.toLocaleString()} m · ${r.kg.toLocaleString()} kg</span></div>`).join('');}
+  `<div class="li" style="cursor:pointer" onclick="goEdit('${r.nota}')"><span class="cod">Remito ${r.nota}</span><span class="mut">${r.destino} · ${r.mts.toLocaleString()} m · ${r.kg.toLocaleString()} kg  ›</span></div>`).join('')||'<div class="li mut">Sin entregas</div>';}
+function buscarRemito(){const n=document.getElementById('qRemito').value.trim(); if(!n){alert('Escribí un N° de remito');return;} goEdit(n);}
+async function goEdit(remito){
+  editRemito=String(remito); bobs=[]; catSel=null; fmtSel=null;
+  document.getElementById('vHoy').classList.add('hidden');document.getElementById('vForm').classList.remove('hidden');
+  document.getElementById('ftHoy').classList.add('hidden');document.getElementById('ftForm').classList.remove('hidden');
+  document.querySelector('#vForm .note').innerHTML='Editando <b>Remito N° '+editRemito+'</b> · los cambios (agregar/quitar) se guardan al instante.';
+  document.getElementById('btnConf').textContent='✓ Listo';
+  document.getElementById('cats').innerHTML='<span class="empty">Cargando…</span>';
+  await loadStock();
+  try{ const ent=await apiGet({action:'read',sheet:'Entregas'});
+    bobs=(ent||[]).filter(r=>String(r['Nº Remito'])===editRemito).map(r=>({cod:String(r['Código Bobina']).trim(),forma:r['Forma'],cat:r['Categoría'],fmt:r['Formato'],mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0}));
+  }catch(e){}
+  if(!bobs.length){ alert('No encontré bobinas para el remito '+editRemito); goHoy(); return; }
+  renderCats(); render();
+}
 function renderCats(){
   const cats=uniq(STOCK.map(b=>b.cat));
   document.getElementById('cats').innerHTML=cats.map(c=>`<div class="opt" data-c="${c}" onclick="pickCat('${c}')">${c}</div>`).join('')
@@ -118,8 +136,18 @@ function renderStock(){
    `<div class="stockrow" onclick="addBob('${b.cod}')"><span class="cod">${b.cod}</span><span class="det">${b.forma} · ${b.mts.toLocaleString()} m · ${b.kg} kg</span><span class="plus">＋</span></div>`).join('')
    ||'<div class="empty">No queda stock de esta categoría/formato</div>';
 }
-function addBob(cod){const i=STOCK.findIndex(b=>b.cod===cod);if(i<0)return;bobs.push(STOCK[i]);STOCK.splice(i,1);renderStock();render();}
-function delBob(i){STOCK.push(bobs[i]);bobs.splice(i,1);render();if(catSel&&fmtSel)renderStock();}
+async function addBob(cod){const i=STOCK.findIndex(b=>b.cod===cod);if(i<0)return;
+  if(editRemito!=null){ const b=STOCK[i];
+    const r=await apiPost({action:'editaragregar',remito:editRemito,bobina:cod,destino:'Álamo'});
+    if(r&&r.ok){ STOCK.splice(i,1); bobs.push(b); renderStock(); render(); } else alert('No se pudo agregar: '+((r&&r.error)||'error'));
+  } else { bobs.push(STOCK[i]);STOCK.splice(i,1);renderStock();render(); }
+}
+async function delBob(i){
+  if(editRemito!=null){ const b=bobs[i];
+    const r=await apiPost({action:'quitardeentrega',remito:editRemito,bobina:b.cod});
+    if(r&&r.ok){ STOCK.push(b); bobs.splice(i,1); render(); if(catSel&&fmtSel)renderStock(); } else alert('No se pudo quitar: '+((r&&r.error)||'error'));
+  } else { STOCK.push(bobs[i]);bobs.splice(i,1);render();if(catSel&&fmtSel)renderStock(); }
+}
 function render(){
   document.getElementById('cnt').textContent=bobs.length?`(${bobs.length})`:'';
   document.getElementById('bobList').innerHTML=bobs.map((b,i)=>
@@ -127,9 +155,11 @@ function render(){
    ||'<div class="empty">Elegí categoría y formato, y tildá las bobinas del stock</div>';
   const tm=bobs.reduce((a,b)=>a+b.mts,0),tk=bobs.reduce((a,b)=>a+b.kg,0);
   document.getElementById('tot').textContent=`${tm.toLocaleString()} m · ${tk.toLocaleString()} kg`;
-  document.getElementById('btnConf').disabled=bobs.length===0;
+  document.getElementById('btnConf').disabled = (editRemito==null && bobs.length===0);
 }
-async function goForm(){bobs=[];catSel=null;fmtSel=null;
+async function goForm(){editRemito=null;bobs=[];catSel=null;fmtSel=null;
+  document.querySelector('#vForm .note').innerHTML='Destino: <b>Álamo</b> · El N° de remito y la fecha se generan solos al confirmar.';
+  document.getElementById('btnConf').textContent='CONFIRMAR → ÁLAMO';
   document.getElementById('vHoy').classList.add('hidden');document.getElementById('vForm').classList.remove('hidden');
   document.getElementById('ftHoy').classList.add('hidden');document.getElementById('ftForm').classList.remove('hidden');
   document.getElementById('cats').innerHTML='<span class="empty">Cargando stock…</span>';
@@ -155,8 +185,8 @@ async function loadStock(){
     STOCK=st;
   }catch(e){}
 }
-function goHoy(){document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
-  document.getElementById('ftForm').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');}
+function goHoy(){editRemito=null;document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
+  document.getElementById('ftForm').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');init();}
 function buildRemitoHTML(num){
   const f=new Date().toLocaleDateString('es-AR');
   const byCat={};
@@ -171,8 +201,9 @@ function buildRemitoHTML(num){
   h+=`<div class="tot">TOTAL: ${tC} bobinas &nbsp;·&nbsp; ${tM.toLocaleString()} m &nbsp;·&nbsp; ${tK.toLocaleString()} kg</div></div>`;
   return h;
 }
-function imprimir(num){if(!bobs.length){alert('Agregá bobinas primero');return;}document.getElementById('printArea').innerHTML=buildRemitoHTML(num);window.print();}
+function imprimir(num){num=num||(editRemito!=null?editRemito:'PREVIA');if(!bobs.length){alert('Agregá bobinas primero');return;}document.getElementById('printArea').innerHTML=buildRemitoHTML(num);window.print();}
 async function confirmar(){
+  if(editRemito!=null){ goHoy(); return; }   // en edición los cambios ya se guardaron
   if(!apiListo()){alert('Sin conexión');return;}
   const btn=document.getElementById('btnConf');btn.disabled=true;btn.textContent='Confirmando…';
   const tk=bobs.reduce((a,b)=>a+b.kg,0),tm=bobs.reduce((a,b)=>a+b.mts,0);
