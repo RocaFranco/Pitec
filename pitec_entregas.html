@@ -101,17 +101,17 @@ function renderCats(){
 }
 function pickCat(c){catSel=c;fmtSel=null;
   document.querySelectorAll('#cats .opt').forEach(o=>o.classList.toggle('sel',o.dataset.c===c));
-  const fmts=uniq(STOCK.filter(b=>b.cat===c).map(b=>b.fmt)).sort((a,b)=>a-b);
-  document.getElementById('fmts').innerHTML=fmts.map(f=>`<div class="opt" data-f="${f}" onclick="pickFmt(${f})">${f}</div>`).join('');
+  const fmts=uniq(STOCK.filter(b=>b.cat===c).map(b=>b.fmt)).sort((a,b)=>(Number(a)||0)-(Number(b)||0));
+  document.getElementById('fmts').innerHTML=fmts.map(f=>`<div class="opt" data-f="${f}" onclick="pickFmt('${f}')">${f}</div>`).join('');
   document.getElementById('stFmt').classList.remove('hidden');
   document.getElementById('stStock').classList.add('hidden');
 }
-function pickFmt(f){fmtSel=f;
-  document.querySelectorAll('#fmts .opt').forEach(o=>o.classList.toggle('sel',+o.dataset.f===f));
+function pickFmt(f){fmtSel=String(f);
+  document.querySelectorAll('#fmts .opt').forEach(o=>o.classList.toggle('sel',String(o.dataset.f)===String(f)));
   renderStock();document.getElementById('stStock').classList.remove('hidden');
 }
 function renderStock(){
-  const list=STOCK.filter(b=>b.cat===catSel&&b.fmt===fmtSel);
+  const list=STOCK.filter(b=>b.cat===catSel&&String(b.fmt)===String(fmtSel));
   document.getElementById('stockSub').textContent=`(${catSel} · Fto ${fmtSel})`;
   document.getElementById('stockList').innerHTML=list.map(b=>
    `<div class="stockrow" onclick="addBob('${b.cod}')"><span class="cod">${b.cod}</span><span class="det">${b.forma} · ${b.mts.toLocaleString()} m · ${b.kg} kg</span><span class="plus">＋</span></div>`).join('')
@@ -132,8 +132,28 @@ async function goForm(){bobs=[];catSel=null;fmtSel=null;
   document.getElementById('vHoy').classList.add('hidden');document.getElementById('vForm').classList.remove('hidden');
   document.getElementById('ftHoy').classList.add('hidden');document.getElementById('ftForm').classList.remove('hidden');
   document.getElementById('cats').innerHTML='<span class="empty">Cargando stock…</span>';
-  if(apiListo()){ try{ const s=await apiGet({action:'stock'}); if(Array.isArray(s)) STOCK=s.map(b=>({cod:b.cod,forma:b.forma,cat:b.cat,fmt:Number(b.fmt),mts:Number(b.mts)||0,kg:Number(b.kg)||0})); }catch(e){} }
+  await loadStock();
   renderCats();render();}
+// stock calculado client-side: Telares (no entregadas/laminadas) + hijas Laminadora (no entregadas) + externas
+async function loadStock(){
+  if(!apiListo()) return;
+  try{
+    const [tel,lam,ent,ext]=await Promise.all([
+      apiGet({action:'read',sheet:'Telares'}),
+      apiGet({action:'read',sheet:'Laminadora'}),
+      apiGet({action:'read',sheet:'Entregas'}),
+      apiGet({action:'read',sheet:'Bobinas Externas'})]);
+    const entregadas=new Set((ent||[]).map(r=>String(r['Código Bobina']).trim()));
+    const laminadas=new Set((lam||[]).map(r=>String(r['Código Madre']).trim()));
+    const enStock=(cod,est)=>{est=String(est||'').toLowerCase();return est.indexOf('entreg')<0&&est.indexOf('lamin')<0&&!entregadas.has(cod)&&!laminadas.has(cod);};
+    const mFmt={},mForma={}; (tel||[]).forEach(r=>{const c=String(r['Código Bobina']).trim();mFmt[c]=r['Formato'];mForma[c]=r['Forma'];});
+    const st=[];
+    (tel||[]).forEach(r=>{const cod=String(r['Código Bobina']).trim(); if(enStock(cod,r['Estado'])) st.push({cod,forma:r['Forma'],cat:r['Categoría']||'(sin cat.)',fmt:Number(r['Formato']),mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});});
+    (lam||[]).forEach(r=>{const cod=String(r['Código Hija']).trim(); const madre=String(r['Código Madre']).trim(); if(cod && !entregadas.has(cod)) st.push({cod,forma:mForma[madre]||'Tubular',cat:'Laminada',fmt:Number(mFmt[madre])||'?',mts:Number(r['Metros Reales'])||0,kg:Number(r['Kg Laminados'])||0});});
+    (ext||[]).forEach(r=>{const cod=String(r['Código']).trim(); if(enStock(cod,r['Estado'])) st.push({cod,forma:'Externa',cat:'Externa',fmt:r['Proveedor']||'—',mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});});
+    STOCK=st;
+  }catch(e){}
+}
 function goHoy(){document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
   document.getElementById('ftForm').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');}
 function buildRemitoHTML(num){
