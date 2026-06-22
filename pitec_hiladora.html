@@ -44,6 +44,13 @@
     <div class="mach" onclick="goParte('H1')"><div class="t">HILADORA 1</div><div class="s">Urdimbre · denieres 81/44/80/99</div><div class="st none">Tocar para cargar el parte</div></div>
     <div class="mach" onclick="goParte('H2')"><div class="t">HILADORA 2</div><div class="s">Trama · denieres 29/32/41/44</div><div class="st none">Tocar para cargar el parte</div></div>
   </div>
+  <h3 class="sec" style="margin-top:18px">Material agregado · grumo (compartido H1 + H2)</h3>
+  <div class="listbox" style="padding:14px">
+    <div id="matHomeRows"></div>
+    <button class="save" style="margin-top:6px" onclick="cargarMat()">＋ Cargar material</button>
+  </div>
+  <div class="listbox" id="matHoyBox" style="margin-top:10px"><div class="lh">Cargado hoy (suma del día)</div><div id="matHoyList"></div></div>
+
   <h3 class="sec" style="margin-top:18px">Partes cargados hoy</h3>
   <div class="listbox" id="hoyBox"><div class="lh">Turnos guardados</div><div id="hoyList"><div class="li mut">Cargando…</div></div></div>
 </main>
@@ -70,12 +77,8 @@
     <div class="rack"><div class="rn">Refile</div><input type="number" id="r3b" placeholder="bruto" oninput="rackCalc(3)"><input type="number" id="r3t" placeholder="tiradas" oninput="rackCalc(3)"><div class="neto" id="r3n">—</div></div>
     <div class="num2" style="margin-top:6px"><div class="f"><input type="number" id="hmalo" placeholder="Kg hilo malo"></div><div class="f"><input type="number" id="purg" placeholder="Kg purgado"></div></div></div>
 
-  <div class="step"><div class="lbl"><span class="num">5</span>MATERIAL AGREGADO (grumo de esta máquina)</div>
-    <div id="matYa" class="mut" style="font-size:13px;margin-bottom:10px"></div>
-    <div class="hint" style="margin-bottom:8px">Cargá solo lo que agregás ahora. Se SUMA a lo de este turno.</div>
-    <div id="matRows"></div>
-    <div style="margin-top:14px"><div class="lbl" style="font-size:13px;color:var(--mut);margin-bottom:6px">Consumo de cuchillas</div>
-      <input type="number" id="cuch" placeholder="Cuchillas consumidas este turno"></div></div>
+  <div class="step"><div class="lbl"><span class="num">5</span>CONSUMO DE CUCHILLAS</div>
+    <input type="number" id="cuch" placeholder="Cuchillas consumidas este turno"></div>
 
   <div class="step"><div class="lbl"><span class="num">6</span>OBSERVACIONES</div>
     <input type="text" id="obs" placeholder="Opcional"></div>
@@ -102,11 +105,32 @@ function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return
 const gv=id=>{const e=document.getElementById(id);return e?e.value:'';};
 const gn=id=>{const x=gv(id);return x===''?'':Number(x);};
 
-function renderMatRows(){
-  document.getElementById('matRows').innerHTML=MAT_HIL.map((m,i)=>
+function renderMatHome(){
+  document.getElementById('matHomeRows').innerHTML=MAT_HIL.map((m,i)=>
    `<div class="matrow"><div class="ml">${m[0]}</div>
-      <select id="mc${i}">${mpOptions(m[1],'Hiladora')}</select>
-      <input type="number" id="mk${i}" placeholder="Kg"></div>`).join('');
+      <select id="mh${i}">${mpOptions(m[1],'Hiladora')}</select>
+      <input type="number" id="mhk${i}" placeholder="Kg"></div>`).join('');
+}
+async function cargarMat(){
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const loads=[];
+  MAT_HIL.forEach((m,i)=>{ const cod=gv('mh'+i), kg=+gv('mhk'+i); if(cod&&kg>0) loads.push({cat:m[1],cod,kg}); });
+  if(!loads.length){alert('Cargá al menos un material con kg');return;}
+  const btn=document.querySelector('#vHome .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    for(const l of loads){ const r=await apiPost({action:'append',sheet:'Material Hiladoras',data:{'Fecha':todayISO(),'Categoría':l.cat,'Código':l.cod,'Kg':l.kg}}); if(r&&r.error) throw r.error; }
+    MAT_HIL.forEach((m,i)=>{document.getElementById('mhk'+i).value='';});
+    loadMatHoy();
+  }catch(e){ alert('Error guardando: '+e); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+async function loadMatHoy(){
+  const box=document.getElementById('matHoyList');
+  try{ const rows=await apiGet({action:'read',sheet:'Material Hiladoras'});
+    const sum={}; (rows||[]).filter(r=>esHoy(r['Fecha'])).forEach(r=>{const c=String(r['Código']||'').trim(); if(c)sum[c]=(sum[c]||0)+(+r['Kg']||0);});
+    const ks=Object.keys(sum);
+    box.innerHTML=ks.length?ks.map(c=>`<div class="li"><span class="cod">${c}</span><span class="mut">${sum[c].toLocaleString('es-AR')} kg</span></div>`).join(''):'<div class="li mut">Sin material hoy</div>';
+  }catch(e){ box.innerHTML='<div class="li mut">—</div>'; }
 }
 function snapEstado(){ if(!maq)return; estados[maq]={turno, vals:[...document.querySelectorAll('#vParte input,#vParte select')].map(i=>i.value)}; }
 function loadEstado(){
@@ -124,23 +148,12 @@ function neto(b,t){const c=CONST[maq];const n=b-c.rv-(t*c.cpt*c.pc)-c.cart;retur
 function netoVal(i){const b=+gv('r'+i+'b'),t=+gv('r'+i+'t');return (b>0&&t>0)?+neto(b,t).toFixed(1):'';}
 function rackCalc(i){const b=+gv('r'+i+'b'),t=+gv('r'+i+'t');
   document.getElementById('r'+i+'n').textContent=(b>0&&t>0)?neto(b,t).toFixed(1):'—';}
-function pTurno(t){turno=t;document.querySelectorAll('[data-tu]').forEach(o=>o.classList.toggle('sel',o.dataset.tu===t));loadTurnoMat();}
-async function loadTurnoMat(){
-  const el=document.getElementById('matYa'); if(!el)return;
-  if(!turno){el.textContent='';return;}
-  el.textContent='Ya cargado este turno: …';
-  try{ const rows=await apiGet({action:'read',sheet:maq==='H2'?'Hiladora 2':'Hiladora 1'});
-    const r=(rows||[]).find(x=>esHoy(x['Fecha'])&&String(x['Turno']).trim()===turno);
-    if(!r){el.textContent='Ya cargado este turno: nada todavía';return;}
-    const t=['Carbonato','Master','PP','Reciclado'].map(c=>{const k=+r['Kg '+c]||0;return k?`${c} ${k.toLocaleString('es-AR')}kg`:null;}).filter(Boolean);
-    el.innerHTML='<b>Ya cargado este turno:</b> '+(t.length?t.join(' · '):'nada todavía');
-  }catch(e){ el.textContent=''; }
-}
+function pTurno(t){turno=t;document.querySelectorAll('[data-tu]').forEach(o=>o.classList.toggle('sel',o.dataset.tu===t));}
 function renderDeniers(){const c=CONST[maq];
   document.getElementById('deniers').innerHTML=c.den.map(d=>
    `<div class="denier"><div class="d">${d}</div><input type="number" id="med${d}" placeholder="—"><input type="number" id="est${d}" placeholder="—"><input type="number" id="dur${d}" placeholder="—"></div>`).join('');}
 function goParte(m){maq=m;document.getElementById('hTitle').textContent=(m==='H1'?'HILADORA 1':'HILADORA 2')+' · '+CONST[m].tipo.toUpperCase();
-  renderDeniers(); loadEstado(); loadTurnoMat();   // restaura lo que tenía esa máquina (no borra)
+  renderDeniers(); loadEstado();   // restaura lo que tenía esa máquina (no borra)
   document.getElementById('vHome').classList.add('hidden');document.getElementById('vParte').classList.remove('hidden');
   document.getElementById('ftHome').classList.add('hidden');document.getElementById('ftParte').classList.remove('hidden');document.getElementById('hBadge').textContent='PARTE DE TURNO';}
 function goHome(){snapEstado();   // guarda lo cargado antes de salir
@@ -157,7 +170,6 @@ async function guardar(){
     'Rack 1':netoVal(1),'Rack 2':netoVal(2),'Refile':netoVal(3),'Kg Hilo Malo':gn('hmalo'),'Kg Purgado':gn('purg'),
     'Estado':'cerrado','Observaciones':gv('obs')};
   c.den.forEach(d=>{ data['Medido '+d]=gn('med'+d); data['Estir '+d]=gn('est'+d); data['Dureza '+d]=gn('dur'+d); });
-  MAT_HIL.forEach((m,i)=>{ data['Código '+m[0]]=gv('mc'+i); data['Kg '+m[0]]=gn('mk'+i); });
   const btn=document.querySelector('#ftParte .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
   try{ const r=await apiPost({action:'guardarhilado',maq,data}); if(r&&r.error) throw r.error;
     alert('Parte de '+(maq==='H1'?'Hiladora 1':'Hiladora 2')+' ('+turno+') guardado ✔');
@@ -173,7 +185,7 @@ async function loadHoy(){
       return `<div class="li"><span class="cod">${x.m==='H1'?'Hiladora 1':'Hiladora 2'} · ${x.r['Turno']||''}</span><span class="mut">${neto?neto.toLocaleString('es-AR')+' kg neto':''}</span></div>`;}).join('')||'<div class="li mut">Todavía no hay partes hoy</div>';
   }catch(e){ box.innerHTML='<div class="li mut">Sin conexión</div>'; }
 }
-renderMatRows(); loadHoy();
+renderMatHome(); loadMatHoy(); loadHoy();
 </script>
 </body>
 </html>

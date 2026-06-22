@@ -102,14 +102,16 @@ function setCarga(t){const e=t==='ent';
 
 async function loadAll(){
   if(!apiListo()){document.getElementById('tabla').innerHTML='<div class="loading">Sin conexión</div>';return;}
-  let cat,ent,ret,lam,h1,h2;
-  try{ [cat,ent,ret,lam,h1,h2]=await Promise.all([
+  let cat,ent,ret,lam,h1,h2,matLam,matHil;
+  try{ [cat,ent,ret,lam,h1,h2,matLam,matHil]=await Promise.all([
     apiGet({action:'read',sheet:'Cat Materia Prima'}),
     apiGet({action:'read',sheet:'Entrada MP'}),
     apiGet({action:'read',sheet:'Retiro MP'}),
     apiGet({action:'read',sheet:'Laminadora'}),
     apiGet({action:'read',sheet:'Hiladora 1'}),
-    apiGet({action:'read',sheet:'Hiladora 2'})]); }
+    apiGet({action:'read',sheet:'Hiladora 2'}),
+    apiGet({action:'read',sheet:'Material Laminadora'}),
+    apiGet({action:'read',sheet:'Material Hiladoras'})]); }
   catch(e){document.getElementById('tabla').innerHTML='<div class="loading">Error leyendo el Sheet</div>';return;}
 
   const catg={}; (cat||[]).forEach(r=>{const c=cdkey(r['Código']); if(c) catg[c]=cdkey(r['Categoría']);});
@@ -123,6 +125,9 @@ async function loadAll(){
   consLam={}; consHil={};
   (lam||[]).forEach(r=>LAM.forEach(p=>{const k=num(r[p[1]]); add(cons,r[p[0]],k); if(k)consLam[p[2]]=(consLam[p[2]]||0)+k;}));
   [h1,h2].forEach(hh=>(hh||[]).forEach(r=>HIL.forEach(p=>{const k=num(r[p[1]]); add(cons,r[p[0]],k); if(k)consHil[p[2]]=(consHil[p[2]]||0)+k;})));
+  // material por la carga aparte nueva (Material Laminadora / Material Hiladoras)
+  (matLam||[]).forEach(r=>{const k=num(r['Kg']),cg=cdkey(r['Categoría']); add(cons,r['Código'],k); if(k&&cg)consLam[cg]=(consLam[cg]||0)+k;});
+  (matHil||[]).forEach(r=>{const k=num(r['Kg']),cg=cdkey(r['Categoría']); add(cons,r['Código'],k); if(k&&cg)consHil[cg]=(consHil[cg]||0)+k;});
 
   const cods=[...new Set([...Object.keys(catg),...Object.keys(entra),...Object.keys(retiro),...Object.keys(cons)])];
   ROWS=cods.map(c=>{const e=entra[c]||0,co=cons[c]||0,re=retiro[c]||0; return {cod:c, cat:catg[c]||'(sin cat.)', e, c:co, r:re, stock:e-co-re};});
