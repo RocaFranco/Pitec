@@ -131,7 +131,7 @@ function pickFmt(f){fmtSel=String(f);
 function renderStock(){
   const list=STOCK.filter(b=>b.cat===catSel&&String(b.fmt)===String(fmtSel))
     .sort((a,b)=>String(a.cod).replace(/\s/g,'').localeCompare(String(b.cod).replace(/\s/g,''),undefined,{numeric:true}));
-  document.getElementById('stockSub').textContent=`(${catSel} · Fto ${fmtSel})`;
+  document.getElementById('stockSub').textContent=`(${catSel} · Fto ${fmtSel} · ${list.length} disponible${list.length===1?'':'s'})`;
   document.getElementById('stockList').innerHTML=list.map(b=>
    `<div class="stockrow" onclick="addBob('${b.cod}')"><span class="cod">${b.cod}</span><span class="det">${b.forma} · ${b.mts.toLocaleString()} m · ${b.kg} kg</span><span class="plus">＋</span></div>`).join('')
    ||'<div class="empty">No queda stock de esta categoría/formato</div>';

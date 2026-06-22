@@ -77,8 +77,11 @@ const SECTORS=[
 ];
 const TURNOS=['Mañana','Tarde'];
 const nameOf=l=>(PERSONAL.find(p=>p.l===l)||{}).n||l;
-let data={}; let cur=null;
+let data={}; let cur=null; let ausentes={};   // ausentes = {legajo: motivo}
+const MOTIVOS=['Vacaciones','Enfermedad','Ausente'];
 SECTORS.forEach(s=>{data[s.name]={};s.puestos.forEach(p=>{data[s.name][p.n]={'Mañana':[],'Tarde':[]}})});
+// ¿está asignado a algún puesto (cualquier turno)?
+function asignado(l){ return SECTORS.some(s=>s.puestos.some(p=>TURNOS.some(t=>data[s.name][p.n][t].includes(l)))); }
 
 function render(){
   const b=document.getElementById('board');b.innerHTML='';
@@ -96,13 +99,44 @@ function render(){
     });
     h+='</div>';div.innerHTML=h;b.appendChild(div);
   });
+  // ===== sección AUSENTES =====
+  const av=document.createElement('div'); av.className='sector';
+  let ah='<h2><span class="dot" style="background:#e8923b"></span>🌴 AUSENTES (vacaciones / enfermedad)</h2>';
+  ah+='<div style="padding:6px 4px">';
+  const aus=Object.keys(ausentes);
+  if(aus.length){ ah+=aus.map(l=>{l=Number(l);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-top:1px solid var(--line)">'+
+      '<span style="flex:1;font-weight:600">'+nameOf(l)+'</span>'+
+      '<select onchange="setMotivo('+l+',this.value)" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+
+        MOTIVOS.map(m=>'<option'+(ausentes[l]===m?' selected':'')+'>'+m+'</option>').join('')+'</select>'+
+      '<span class="x" style="cursor:pointer;color:var(--bad);font-weight:700" onclick="quitarAusente('+l+')">✕</span></div>';
+  }).join(''); }
+  else ah+='<div style="color:var(--mut);font-size:13px;padding:6px">Nadie marcado como ausente.</div>';
+  ah+='</div><button class="ghost" style="margin-top:8px" onclick="openAusente()">+ marcar ausente</button>';
+  av.innerHTML=ah; b.appendChild(av);
 }
+function openAusente(){
+  cur='AUSENTE';
+  document.getElementById('mTitle').textContent='Marcar ausente';
+  document.getElementById('mHint').textContent='Tocá a la persona que no trabaja esta semana (vacaciones/enfermedad).';
+  const pool=PERSONAL.filter(pe=>!asignado(pe.l) && !ausentes[pe.l]);
+  document.getElementById('mPeople').innerHTML=pool.length?pool.map(pe=>
+    '<div class="person" onclick="pickAusente('+pe.l+')"><span>'+pe.n+'</span><span class="lg">Leg. '+pe.l+'</span></div>').join('')
+    :'<div class="hint">Todos ya están asignados o marcados.</div>';
+  document.getElementById('ov').classList.add('on');
+}
+function pickAusente(l){ ausentes[l]='Vacaciones'; closeModal(); render(); }
+function setMotivo(l,m){ ausentes[l]=m; }
+function quitarAusente(l){ delete ausentes[l]; render(); }
 function openModal(sec,puesto,turno){
   cur={sec,puesto,turno};
   const s=SECTORS.find(x=>x.name===sec);const p=s.puestos.find(x=>x.n===puesto);
   document.getElementById('mTitle').textContent=sec+' · '+puesto+' · '+turno;
   document.getElementById('mHint').textContent=p.multi?'Podés elegir VARIOS. Tocá para sumar o sacar.':'Elegí UNO. Tocá para cambiar.';
-  const pool=PERSONAL.filter(pe=>!s.filter||pe.s.includes(s.filter));
+  // ocupados = ya asignados a OTRO puesto en el MISMO turno (no pueden estar en dos a la vez)
+  const ocupados=new Set();
+  SECTORS.forEach(ss=>ss.puestos.forEach(pp=>{(data[ss.name][pp.n][turno]||[]).forEach(l=>{ if(!(ss.name===sec&&pp.n===puesto)) ocupados.add(l); });}));
+  const pool=PERSONAL.filter(pe=>(!s.filter||pe.s.includes(s.filter)) && !ocupados.has(pe.l) && !ausentes[pe.l]);
   const sel=data[sec][puesto][turno];
   document.getElementById('mPeople').innerHTML=pool.map(pe=>
     '<div class="person'+(sel.includes(pe.l)?' sel':'')+'" onclick="pick('+pe.l+')"><span>'+pe.n+'</span><span class="lg">Leg. '+pe.l+'</span></div>').join('');
@@ -134,16 +168,22 @@ function buildPartePDF(){
     });
     h+=`</table>`;
   });
+  if(Object.keys(ausentes).length){ h+=`<h3>Ausentes</h3><table class="pt"><tr><th>Persona</th><th>Motivo</th></tr>`;
+    Object.keys(ausentes).forEach(l=>{l=Number(l); h+=`<tr><td class="pp">${nameOf(l)}</td><td>${ausentes[l]}</td></tr>`;}); h+=`</table>`; }
   return h+`</div>`;
 }
 function imprimirParte(){ document.getElementById('printArea').innerHTML=buildPartePDF(); window.print(); }
 async function save(){
   if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  // TODOS deben tener puesto asignado o estar marcados como ausentes
+  const faltan=PERSONAL.filter(pe=>!asignado(pe.l)&&!ausentes[pe.l]);
+  if(faltan.length){ alert('⚠️ Falta asignarles puesto (o marcarlos ausentes):\n\n'+faltan.map(p=>'• '+p.n).join('\n')); return; }
   const semana=document.getElementById('wkLbl').textContent;
   const rows=[];
   SECTORS.forEach(s=>s.puestos.forEach(p=>TURNOS.forEach(t=>{
     data[s.name][p.n][t].forEach(l=>rows.push({'Semana':semana,'Sector':s.name,'Puesto':p.n,'Turno':t,'Legajo':l,'Nombre':nameOf(l)}));
   })));
+  Object.keys(ausentes).forEach(l=>{l=Number(l); rows.push({'Semana':semana,'Sector':'Ausente','Puesto':ausentes[l],'Turno':'-','Legajo':l,'Nombre':nameOf(l)});});
   if(!rows.length){alert('No asignaste a nadie todavía');return;}
   const btn=document.querySelector('.save');btn.disabled=true;btn.textContent='Guardando…';
   try{ for(const row of rows){ await apiPost({action:'append',sheet:'Parte Semanal',data:row}); }
