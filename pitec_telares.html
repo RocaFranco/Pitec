@@ -59,8 +59,8 @@
 
   <div class="step"><div class="lbl"><span class="num">7</span>HORARIOS</div>
     <div class="num2">
-      <div class="f"><input type="datetime-local" id="ini"><div class="sug" id="iniSug"></div></div>
-      <div class="f"><input type="datetime-local" id="fin"></div>
+      <div class="f"><input type="datetime-local" id="ini" oninput="calc()" onchange="calc()"><div class="sug" id="iniSug"></div></div>
+      <div class="f"><input type="datetime-local" id="fin" oninput="calc()" onchange="calc()"></div>
     </div></div>
 
   <div class="step"><div class="calc">
@@ -183,7 +183,7 @@ async function guardar(){
     'Metros':+document.getElementById('mts').value,'Kg':+document.getElementById('kg').value,
     'Gramaje':document.getElementById('cGram').textContent.replace(' gr/m²',''),
     'Fecha Hora Inicio':document.getElementById('ini').value,'Fecha Hora Fin':document.getElementById('fin').value,
-    'Tiempo Producción (hs)':document.getElementById('cTime').textContent.replace(' hs',''),
+    'Tiempo Producción (hs)':(function(){const i=document.getElementById('ini').value,f=document.getElementById('fin').value;if(i&&f){const h=(new Date(f)-new Date(i))/3.6e6;if(h>0)return +h.toFixed(1);}return '';})(),
     'Observaciones':''
   };
   const btn=document.getElementById('btnSave');btn.disabled=true;btn.textContent='Guardando…';
