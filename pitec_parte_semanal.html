@@ -133,9 +133,9 @@ function openModal(sec,puesto,turno){
   const s=SECTORS.find(x=>x.name===sec);const p=s.puestos.find(x=>x.n===puesto);
   document.getElementById('mTitle').textContent=sec+' · '+puesto+' · '+turno;
   document.getElementById('mHint').textContent=p.multi?'Podés elegir VARIOS. Tocá para sumar o sacar.':'Elegí UNO. Tocá para cambiar.';
-  // ocupados = ya asignados a OTRO puesto en el MISMO turno (no pueden estar en dos a la vez)
+  // ocupados = ya asignados a CUALQUIER otro puesto (cualquier turno): una persona ocupa un solo puesto
   const ocupados=new Set();
-  SECTORS.forEach(ss=>ss.puestos.forEach(pp=>{(data[ss.name][pp.n][turno]||[]).forEach(l=>{ if(!(ss.name===sec&&pp.n===puesto)) ocupados.add(l); });}));
+  SECTORS.forEach(ss=>ss.puestos.forEach(pp=>TURNOS.forEach(tt=>{(data[ss.name][pp.n][tt]||[]).forEach(l=>{ if(!(ss.name===sec&&pp.n===puesto&&tt===turno)) ocupados.add(l); });})));
   const pool=PERSONAL.filter(pe=>(!s.filter||pe.s.includes(s.filter)) && !ocupados.has(pe.l) && !ausentes[pe.l]);
   const sel=data[sec][puesto][turno];
   document.getElementById('mPeople').innerHTML=pool.map(pe=>
