@@ -42,9 +42,13 @@
 <main id="vHoy">
   <button class="big" onclick="goForm()">＋  NUEVA ENTREGA</button>
   <h3 class="sec">Editar una entrega</h3>
-  <div style="display:flex;gap:8px;margin-bottom:10px">
+  <div style="display:flex;gap:8px;margin-bottom:8px">
     <input id="qRemito" type="number" placeholder="N° de remito…" style="flex:1;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:10px;background:#fff">
     <button class="ghost" onclick="buscarRemito()">Buscar</button></div>
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+    <span style="font-size:13px;color:var(--mut)">o por fecha:</span>
+    <input id="qFecha" type="date" onchange="renderRemitos()" style="padding:10px 12px;font-size:14px;border:1px solid var(--line);border-radius:10px;background:#fff">
+    <button class="ghost" onclick="document.getElementById('qFecha').value='';renderRemitos()">Ver últimas</button></div>
   <div class="listbox"><div class="lh">Últimas entregas (tocá para editar)</div><div id="remitos"></div></div>
 </main>
 
@@ -95,8 +99,13 @@ let REMITOS=[];
 let bobs=[], catSel=null, fmtSel=null, nextNota=5400, editRemito=null;
 
 const uniq=a=>[...new Set(a)];
-function renderRemitos(){document.getElementById('remitos').innerHTML=REMITOS.map(r=>
-  `<div class="li" style="cursor:pointer" onclick="goEdit('${r.nota}')"><span class="cod">Remito ${r.nota}</span><span class="mut">${r.destino} · ${r.mts.toLocaleString()} m · ${r.kg.toLocaleString()} kg  ›</span></div>`).join('')||'<div class="li mut">Sin entregas</div>';}
+function renderRemitos(){
+  const fq=document.getElementById('qFecha')?document.getElementById('qFecha').value:'';
+  const list = fq ? REMITOS.filter(r=>r.fechaISO===fq) : REMITOS.slice(0,10);
+  document.getElementById('remitos').innerHTML=list.map(r=>
+    `<div class="li" style="cursor:pointer" onclick="goEdit('${r.nota}')"><span class="cod">Remito ${r.nota}</span><span class="mut">${r.fechaTxt?r.fechaTxt+' · ':''}${r.destino} · ${r.mts.toLocaleString()} m · ${r.kg.toLocaleString()} kg  ›</span></div>`).join('')
+    ||'<div class="li mut">Sin entregas'+(fq?' en esa fecha':'')+'</div>';
+}
 function buscarRemito(){const n=document.getElementById('qRemito').value.trim(); if(!n){alert('Escribí un N° de remito');return;} goEdit(n);}
 async function goEdit(remito){
   editRemito=String(remito); bobs=[]; catSel=null; fmtSel=null;
@@ -223,9 +232,12 @@ async function init(){
       const ent=await apiGet({action:'read',sheet:'Entregas'});
       const g={};
       (ent||[]).forEach(r=>{ const n=r['Nº Remito']; if(n===''||n==null) return;
-        (g[n]=g[n]||{nota:String(n),destino:r['Destino']||'Álamo',mts:0,kg:0});
+        if(!g[n]){ const d=new Date(r['Fecha']); const ok=!isNaN(d);
+          g[n]={nota:String(n),destino:r['Destino']||'Álamo',mts:0,kg:0,
+            fechaISO: ok?(d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)):'',
+            fechaTxt: ok?d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):''}; }
         g[n].mts+=Number(r['Metros'])||0; g[n].kg+=Number(r['Kg'])||0; });
-      REMITOS=Object.values(g).sort((a,b)=>Number(b.nota)-Number(a.nota)).slice(0,10);
+      REMITOS=Object.values(g).sort((a,b)=>Number(b.nota)-Number(a.nota));
     }catch(e){}
   }
   renderRemitos();
