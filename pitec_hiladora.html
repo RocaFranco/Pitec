@@ -48,8 +48,11 @@
   </div>
   <h3 class="sec" style="margin-top:18px">Material agregado · grumo (compartido H1 + H2)</h3>
   <div class="listbox" style="padding:14px">
+    <div class="opts" style="margin-bottom:10px"><div class="opt" data-th="Día" onclick="setTurnoHome('Día')">Mañana / Día</div><div class="opt" data-th="Noche" onclick="setTurnoHome('Noche')">Tarde / Noche</div></div>
+    <select id="legHome" onchange="updateMatBtn()" style="width:100%;padding:11px;font-size:15px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px"><option value="">— Legajo —</option></select>
+    <div id="thHint" style="font-size:12px;color:var(--mut);margin-bottom:12px">Elegí turno y legajo para habilitar la carga.</div>
     <div id="matHomeRows"></div>
-    <button class="save" style="margin-top:6px" onclick="cargarMat()">＋ Cargar material</button>
+    <button class="save" id="btnMatHil" style="margin-top:6px" onclick="cargarMat()" disabled>＋ Cargar material</button>
   </div>
   <div class="listbox" id="matHoyBox" style="margin-top:10px"><div class="lh">Cargado hoy (suma del día)</div><div id="matHoyList"></div></div>
 
@@ -99,8 +102,23 @@ const CONST={H1:{pc:0.1809,cpt:88,rv:127.53,cart:6,den:[81,44,80,99],tipo:'Urdim
              H2:{pc:0.1799,cpt:88,rv:127.53,cart:6,den:[29,32,41,44],tipo:'Trama'}};
 // filas fijas de material: [etiqueta/columna del Sheet, categoría del catálogo]
 const MAT_HIL=[['Carbonato','Carbonato'],['Master','Master'],['PP','PP'],['Reciclado','Recuperado']];
-let maq=null, turno=null;
+let maq=null, turno=null, turnoHome=null;
 const estados={H1:null,H2:null};   // guarda lo cargado de cada máquina (no se pierde al navegar)
+// ===== Turno + legajo para cargar material (en la misma sección) =====
+function _esHil(p){return String(p['Sector']||'').toLowerCase().includes('hilad');}
+let HIL_PERS=[];
+function setTurnoHome(t){turnoHome=t;document.querySelectorAll('[data-th]').forEach(o=>o.classList.toggle('sel',o.dataset.th===t));updateMatBtn();}
+function legHomeVal(){const e=document.getElementById('legHome');return e?e.value:'';}
+function updateMatBtn(){const ok=!!(turnoHome&&legHomeVal());
+  const b=document.getElementById('btnMatHil'); if(b)b.disabled=!ok;
+  const h=document.getElementById('thHint'); if(h)h.textContent=ok?'✓ Cargando como turno '+turnoHome+' · legajo '+legHomeVal():'Elegí turno y legajo para habilitar la carga.';}
+async function fillLegHome(){
+  if(!apiListo())return;
+  try{ const cp=await apiGet({action:'read',sheet:'Cat Personal'});
+    HIL_PERS=(cp||[]).filter(p=>(p['Legajo']||p['Nombre'])&&_esHil(p));
+    document.getElementById('legHome').innerHTML='<option value="">— Legajo —</option>'+HIL_PERS.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+  }catch(e){}
+}
 const fechaHdr=document.querySelector('header .date'); if(fechaHdr) fechaHdr.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
 function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
@@ -115,16 +133,17 @@ function renderMatHome(){
 }
 async function cargarMat(){
   if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  if(!turnoHome||!legHomeVal()){alert('Elegí turno y legajo arriba');return;}
   const loads=[];
   MAT_HIL.forEach((m,i)=>{ const cod=gv('mh'+i), kg=+gv('mhk'+i); if(cod&&kg>0) loads.push({cat:m[1],cod,kg}); });
   if(!loads.length){alert('Cargá al menos un material con kg');return;}
-  const btn=document.querySelector('#vHome .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
+  const btn=document.getElementById('btnMatHil'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
   try{
-    for(const l of loads){ const r=await apiPost({action:'append',sheet:'Material Hiladoras',data:{'Fecha':todayISO(),'Categoría':l.cat,'Código':l.cod,'Kg':l.kg}}); if(r&&r.error) throw r.error; }
+    for(const l of loads){ const r=await apiPost({action:'append',sheet:'Material Hiladoras',data:{'Fecha':todayISO(),'Turno':turnoHome,'Legajo':legHomeVal(),'Categoría':l.cat,'Código':l.cod,'Kg':l.kg}}); if(r&&r.error) throw r.error; }
     MAT_HIL.forEach((m,i)=>{document.getElementById('mhk'+i).value='';});
     loadMatHoy();
   }catch(e){ alert('Error guardando: '+e); }
-  finally{ btn.disabled=false; btn.textContent=txt; }
+  finally{ btn.textContent=txt; updateMatBtn(); }
 }
 async function loadMatHoy(){
   const box=document.getElementById('matHoyList');
@@ -187,7 +206,7 @@ async function loadHoy(){
       return `<div class="li"><span class="cod">${x.m==='H1'?'Hiladora 1':'Hiladora 2'} · ${x.r['Turno']||''}</span><span class="mut">${neto?neto.toLocaleString('es-AR')+' kg neto':''}</span></div>`;}).join('')||'<div class="li mut">Todavía no hay partes hoy</div>';
   }catch(e){ box.innerHTML='<div class="li mut">Sin conexión</div>'; }
 }
-renderMatHome(); loadMatHoy(); loadHoy();
+renderMatHome(); fillLegHome(); loadMatHoy(); loadHoy();
 </script>
 </body>
 </html>
