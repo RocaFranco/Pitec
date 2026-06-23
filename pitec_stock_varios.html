@@ -46,7 +46,6 @@
 
   <!-- ===== STOCK ===== -->
   <div id="vStock">
-    <div class="tot" id="kpis"></div>
     <input class="buscar" id="q" placeholder="🔍 Buscar artículo…" oninput="renderStock()">
     <div class="matwrap"><div id="tabla" class="loading">Calculando stock desde el Sheet…</div></div>
   </div>
@@ -144,13 +143,6 @@ async function loadAll(){
 function renderStock(){
   const q=(document.getElementById('q').value||'').trim().toUpperCase();
   const rows=ROWS.filter(r=>!q || r.art.toUpperCase().includes(q));
-  const totStock=ROWS.reduce((a,r)=>a+r.stock,0);
-  const conStock=ROWS.filter(r=>r.stock>0).length;
-  const negs=ROWS.filter(r=>r.stock<0).length;
-  document.getElementById('kpis').innerHTML=
-    `<div class="kpi"><div class="v">${fmt(totStock)}</div><div class="l">Unidades en stock</div></div>
-     <div class="kpi"><div class="v">${conStock}</div><div class="l">Artículos con stock</div></div>
-     <div class="kpi ${negs?'bad':''}"><div class="v">${negs}</div><div class="l">En negativo (revisar)</div></div>`;
   if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
   let h=`<table class="mp"><thead><tr><th class="l">Artículo</th><th>Entradas</th><th>Salidas</th><th>STOCK</th></tr></thead><tbody>`;
   rows.forEach(r=>{ const nota=r.auto?` <span class="nota">(${fmt(r.auto)} por hiladoras)</span>`:'';
