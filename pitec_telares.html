@@ -47,9 +47,9 @@
       <div class="opt" data-c="Convencional" onclick="setCat('Convencional')">Convencional</div></div></div>
 
   <div class="step"><div class="lbl"><span class="num">5</span>TRAMA</div>
-    <div class="opts"><div class="opt" data-t="3" onclick="setTrama('3')">3</div>
-      <div class="opt" data-t="5" onclick="setTrama('5')">5</div>
-      <div class="opt" data-t="5.5" onclick="setTrama('5.5')">5.5</div></div></div>
+    <div class="opts"><div class="opt" data-tr="3" onclick="setTrama('3')">3</div>
+      <div class="opt" data-tr="5" onclick="setTrama('5')">5</div>
+      <div class="opt" data-tr="5.5" onclick="setTrama('5.5')">5.5</div></div></div>
 
   <div class="step"><div class="lbl"><span class="num">6</span>MEDIDAS</div>
     <div class="num2">
@@ -136,8 +136,8 @@ function setFmt(x){st.fmt=x;st.vent='No';mark('formatos','data-x',x);
   updateCod();chk();}
 function setVent(v){st.vent=v;document.querySelectorAll('#ventBox .opt').forEach(o=>o.classList.toggle('sel',o.dataset.v===v));updateCod();chk();}
 function setCat(c){st.cat=c;document.querySelectorAll('#stCat .opt').forEach(o=>o.classList.toggle('sel',o.dataset.c===c));chk();}
-function setTrama(t){st.trama=t;document.querySelectorAll('.step .opt[data-t]').forEach(o=>{});
-  document.querySelectorAll('[data-t]').forEach(o=>{if(o.dataset.t===t&&['3','5','5.5'].includes(o.dataset.t))o.classList.add('sel');else if(['3','5','5.5'].includes(o.dataset.t))o.classList.remove('sel')});calc();chk();}
+function setTrama(t){st.trama=t;
+  document.querySelectorAll('[data-tr]').forEach(o=>o.classList.toggle('sel',o.dataset.tr===t));calc();chk();}
 function mark(id,attr,val){document.querySelectorAll('#'+id+' .opt').forEach(o=>o.classList.toggle('sel',o.getAttribute(attr)==String(val)))}
 async function updateCod(){
   const box=document.getElementById('stCod');
