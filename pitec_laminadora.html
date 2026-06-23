@@ -43,6 +43,12 @@
     <button class="save" style="margin-top:6px" onclick="cargarMat()">＋ Cargar material</button>
   </div>
   <div class="listbox" id="matHoyBox" style="margin-top:10px"><div class="lh">Cargado hoy (suma del día)</div><div id="matHoyList"></div></div>
+  <h3 class="sec">Desperdicio</h3>
+  <div class="listbox" style="padding:14px">
+    <div id="despRows"></div>
+    <button class="save" style="margin-top:6px;background:var(--bad)" onclick="cargarDesp()">＋ Cargar desperdicio</button>
+  </div>
+  <div class="listbox" id="despHoyBox" style="margin-top:10px"><div class="lh">Desperdicio cargado hoy</div><div id="despHoyList"></div></div>
   <h3 class="sec">Hijas terminadas hoy</h3>
   <div class="listbox"><div class="lh">Bobinas laminadas</div><div id="hoyHijas"></div></div>
 </main>
@@ -78,9 +84,6 @@
     <div id="hijasList"></div>
   </div>
   <button class="addbtn" onclick="openHija()">＋ SACAR HIJA</button>
-  <div style="height:14px"></div>
-  <h3 class="sec">Desperdicio</h3>
-  <div id="despRows"></div>
 </main>
 
 <!-- FOOTERS -->
@@ -113,9 +116,30 @@ const MAT_LAM=[
 // desperdicio (solo kg, sin código — NO es consumo de material): [etiqueta, columna Sheet]
 const DESP_LAM=[ ['Purgado','Kg Purgados'], ['Empalme','Kg Empalmes'] ];
 let madre=null, color=null, lados=null, turno=null, madreInfo=null, chkTimer=null;
-function renderMatRows(){   // desperdicio de la madre (Purgado/Empalme)
+function renderDesp(){   // desperdicio (Purgado/Empalme) — carga del día, no de cada bobina
   document.getElementById('despRows').innerHTML=DESP_LAM.map((m,i)=>
     `<div class="matrow"><div class="ml">${m[0]}</div><div class="nocode">(desperdicio)</div><input type="number" id="ldk${i}" placeholder="Kg"></div>`).join('');
+}
+async function cargarDesp(){
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const loads=[];
+  DESP_LAM.forEach((m,i)=>{ const kg=+_gv('ldk'+i); if(kg>0) loads.push({tipo:m[0],kg}); });
+  if(!loads.length){alert('Cargá Purgado o Empalme con kg');return;}
+  const btn=document.querySelector('#vHoy .save[onclick="cargarDesp()"]'); const txt=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+  try{
+    for(const l of loads){ const r=await apiPost({action:'append',sheet:'Desperdicio Laminadora',data:{'Fecha':todayISO(),'Tipo':l.tipo,'Kg':l.kg}}); if(r&&r.error) throw r.error; }
+    DESP_LAM.forEach((m,i)=>{document.getElementById('ldk'+i).value='';});
+    loadDespHoy();
+  }catch(e){ alert('Error guardando: '+e); }
+  finally{ if(btn){btn.disabled=false;btn.textContent=txt;} }
+}
+async function loadDespHoy(){
+  const box=document.getElementById('despHoyList');
+  try{ const rows=await apiGet({action:'read',sheet:'Desperdicio Laminadora'});
+    const sum={}; (rows||[]).filter(r=>esHoy(r['Fecha'])).forEach(r=>{const t=String(r['Tipo']||'').trim(); if(t)sum[t]=(sum[t]||0)+(+r['Kg']||0);});
+    const ks=Object.keys(sum);
+    box.innerHTML=ks.length?ks.map(t=>`<div class="li"><span class="cod">${t}</span><span class="mut">${sum[t].toLocaleString('es-AR')} kg</span></div>`).join(''):'<div class="li mut">Sin desperdicio hoy</div>';
+  }catch(e){ box.innerHTML='<div class="li mut">—</div>'; }
 }
 function renderMatHome(){   // grumo: carga aparte que suma en el día
   document.getElementById('matHomeRows').innerHTML=MAT_LAM.map((m,i)=>
@@ -190,7 +214,7 @@ function abrirMadre(){
   madre={cod:madreInfo.cod,fmt:madreInfo.fmt,gr:madreInfo.gr,mts:madreInfo.mts,kg:madreInfo.kg,cat:madreInfo.cat,turno:turno,hijas:[],
     leg1:document.getElementById('pl1').value, leg2:document.getElementById('pl2').value,
     vExt:document.getElementById('pExt').value, vLam:document.getElementById('pLam').value, vWin:document.getElementById('pWin').value};
-  renderMatRows(); goMadre();renderHoy();
+  goMadre();renderHoy();
 }
 function renderMadre(){
   document.getElementById('madreHead').innerHTML=
@@ -222,12 +246,6 @@ function addHija(){
     agr:+((g-madre.gr)*m*madre.fmt*K/100/1000).toFixed(1)});
   document.getElementById('ovHija').classList.remove('on');renderMadre();
 }
-/* columnas de material para la 1ª hija: lee las filas fijas del form y mapea a las columnas del Sheet */
-function matCols(){
-  const o={'Kg Purgados':'','Kg Empalmes':''};   // el grumo ahora va por la carga aparte (Material Laminadora)
-  DESP_LAM.forEach((m,i)=>{ const kgEl=document.getElementById('ldk'+i); const kg=kgEl?+kgEl.value:0; if(kg)o[m[1]]=kg; });
-  return o;
-}
 async function cerrarMadre(){
   if(!madre.hijas.length){alert('No sacaste ninguna hija todavía');return;}
   const btn=document.querySelector('#ftMadre .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
@@ -238,7 +256,6 @@ async function cerrarMadre(){
       const data={'Código Madre':madre.cod,'Fecha':fecha,'Turno':madre.turno,'Legajo 1':madre.leg1,'Legajo 2':madre.leg2,'Color':color,'Lados':lados,
         'Metros Reales':h.mts,'Kg Laminados':h.kg,'Gr Promedio':h.gr,'Gr Agregado':h.grAgr,'Kg Agregados':h.agr,
         'Vel Extruder A/B':madre.vExt,'Vel Laminated A/B':madre.vLam,'Vel Winding':madre.vWin,'Estado':'Stock','Observaciones':''};
-      if(i===0) Object.assign(data,matCols());
       const r=await apiPost({action:'guardarhija',data}); if(r&&r.error) throw r.error;
     }
     const rc=await apiPost({action:'cerrarmadre',madre:madre.cod}); if(rc&&rc.error) throw rc.error;
@@ -256,12 +273,12 @@ async function loadHoyHijas(){
   }catch(e){ HOY_HIJAS=[]; }
   renderHoy();
 }
-function goHoy(){show('vHoy');document.getElementById('ftHoy').classList.remove('hidden');document.getElementById('hBadge').textContent='HOY';renderHoy();loadHoyHijas();loadMatHoy();}
+function goHoy(){show('vHoy');document.getElementById('ftHoy').classList.remove('hidden');document.getElementById('hBadge').textContent='HOY';renderHoy();loadHoyHijas();loadMatHoy();loadDespHoy();}
 function goPoner(){document.getElementById('madreCod').value='';document.getElementById('stockMsg').innerHTML='';color=null;lados=null;turno=null;madreInfo=null;
   document.querySelectorAll('#vPoner .opt').forEach(o=>o.classList.remove('sel'));
   show('vPoner');document.getElementById('ftPoner').classList.remove('hidden');document.getElementById('hBadge').textContent='PONER MADRE';chkAbrir();}
 function goMadre(){show('vMadre');document.getElementById('ftMadre').classList.remove('hidden');document.getElementById('hBadge').textContent='EN MÁQUINA';renderMadre();}
-renderMatHome(); goHoy();
+renderMatHome(); renderDesp(); goHoy();
 </script>
 </body>
 </html>
