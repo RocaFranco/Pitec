@@ -67,6 +67,7 @@
   <div style="height:14px"></div>
   <div class="listbox"><div class="lh">Bobinas en esta entrega <span id="cnt" class="mut"></span></div>
     <div id="bobList"></div></div>
+  <div class="listbox" id="resumenBox" style="margin-top:10px"><div class="lh">Total por categoría y formato</div><div id="resumen"></div></div>
   <div class="totbar"><span>TOTAL</span><span id="tot">0 m · 0 kg</span></div>
 </main>
 
@@ -164,6 +165,13 @@ function render(){
    ||'<div class="empty">Elegí categoría y formato, y tildá las bobinas del stock</div>';
   const tm=bobs.reduce((a,b)=>a+b.mts,0),tk=bobs.reduce((a,b)=>a+b.kg,0);
   document.getElementById('tot').textContent=`${tm.toLocaleString()} m · ${tk.toLocaleString()} kg`;
+  // resumen por categoría → formato
+  const g={}; bobs.forEach(b=>{const c=b.cat||'(sin cat.)';(g[c]=g[c]||{});const f=b.fmt;(g[c][f]=g[c][f]||{n:0,mts:0,kg:0});g[c][f].n++;g[c][f].mts+=b.mts;g[c][f].kg+=b.kg;});
+  let rh='';
+  Object.keys(g).sort().forEach(c=>{ rh+=`<div class="li" style="background:var(--card2);font-weight:800;color:var(--acc-d)"><span>${c}</span><span></span></div>`;
+    Object.keys(g[c]).sort((a,b)=>Number(a)-Number(b)).forEach(f=>{const x=g[c][f];
+      rh+=`<div class="li"><span>Fto ${f} · <b>${x.n}</b> bob.</span><span class="mut">${x.mts.toLocaleString()} m · ${x.kg.toLocaleString()} kg</span></div>`;});});
+  document.getElementById('resumen').innerHTML=rh||'<div class="li mut">Sin bobinas todavía</div>';
   document.getElementById('btnConf').disabled = (editRemito==null && bobs.length===0);
 }
 async function goForm(){editRemito=null;bobs=[];catSel=null;fmtSel=null;
