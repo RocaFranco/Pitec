@@ -248,6 +248,13 @@ function addHija(){
 }
 async function cerrarMadre(){
   if(!madre.hijas.length){alert('No sacaste ninguna hija todavía');return;}
+  // EMPALMES obligatorios: tienen que estar cargados hoy (sección Desperdicio) antes de cerrar
+  if(apiListo()){
+    try{ const dr=await apiGet({action:'read',sheet:'Desperdicio Laminadora'});
+      const hayEmp=(dr||[]).some(r=>esHoy(r['Fecha'])&&String(r['Tipo']).trim()==='Empalme'&&(+r['Kg']||0)>0);
+      if(!hayEmp){ alert('⚠️ Antes de cerrar la madre, cargá los EMPALMES del turno en la sección "Desperdicio" (abajo del material agregado). Es obligatorio.'); return; }
+    }catch(e){}
+  }
   const btn=document.querySelector('#ftMadre .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
   try{
     const fecha=todayISO();
