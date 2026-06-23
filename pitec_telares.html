@@ -199,6 +199,8 @@ async function guardar(){
     const r=await apiPost({action:'guardartelares',data});
     if(r&&r.ok){
       HOY.unshift({cod:r.codigo,tel:st.telar,forma:st.forma,fmt:st.fmt,cat:data['Categoría'],mts:data.Metros,kg:data.Kg});
+      // el fin de esta bobina pasa a ser la sugerencia del telar (para la siguiente, sin recargar)
+      ULT_FIN[st.telar]=document.getElementById('fin').value; ULT_FMT[st.telar]=st.fmt;
       renderHoy();goHoy();
     }else alert('No se pudo guardar: '+((r&&r.error)||'error'));
   }catch(e){alert('Error de conexión: '+e);}
