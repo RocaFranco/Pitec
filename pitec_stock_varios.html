@@ -24,6 +24,9 @@
   table.mp td.art{font-weight:700;color:var(--acc-d)}
   table.mp td.stk{font-weight:800}
   table.mp tr.neg td.stk{color:var(--bad)}
+  table.mp tr.low{background:#fff7ed}
+  table.mp tr.low td.stk{color:#c2410c}
+  table.mp .lowtag{color:#c2410c;font-size:11px;font-weight:700}
   table.mp .nota{color:var(--mut);font-size:12px}
   .loading{color:var(--mut);padding:20px;text-align:center}
   .ctabs{display:flex;gap:8px;margin-bottom:14px}
@@ -115,6 +118,7 @@ async function loadAll(){
   (ret||[]).forEach(r=>add(retman,r['Artículo'],r['Cantidad']));
   const catRows=(cv||[]);
   const catArt=catRows.map(r=>key(r['Artículo'])).filter(Boolean);
+  const minByArt={}; catRows.forEach(r=>{const a=key(r['Artículo']); if(a){const m=num(r['Mínimo']); if(m>0) minByArt[a]=m;}});
   // artículos de descuento AUTOMÁTICO (col 'Descuento' marcada en Cat Varios). Respaldo: "Cuchillas ABB-50".
   let autoSet=new Set(catRows.filter(r=>key(r['Descuento'])).map(r=>key(r['Artículo'])).filter(Boolean));
   if(!autoSet.size && catArt.includes('Cuchillas ABB-50')) autoSet=new Set(['Cuchillas ABB-50']);
@@ -127,8 +131,8 @@ async function loadAll(){
   if(cuchHil && cuchArt && !arts.includes(cuchArt)) arts.push(cuchArt);
 
   ROWS=arts.map(a=>{const e=entra[a]||0; let s=retman[a]||0; let auto=0;
-    if(a===cuchArt) auto=cuchHil; s+=auto;
-    return {art:a, e, s, auto, stock:e-s};});
+    if(a===cuchArt) auto=cuchHil; s+=auto; const stock=e-s; const mn=minByArt[a];
+    return {art:a, e, s, auto, stock, min:mn||0, low:(mn!=null && stock<mn)};});
   ROWS.sort((a,b)=>a.art.localeCompare(b.art));
 
   // carga: entrada = todas; salida = SIN las automáticas (para no descontar doble)
@@ -146,8 +150,9 @@ function renderStock(){
   if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
   let h=`<table class="mp"><thead><tr><th class="l">Artículo</th><th>Entradas</th><th>Salidas</th><th>STOCK</th></tr></thead><tbody>`;
   rows.forEach(r=>{ const nota=r.auto?` <span class="nota">(${fmt(r.auto)} por hiladoras)</span>`:'';
-    h+=`<tr class="${r.stock<0?'neg':''}"><td class="l art">${r.art}</td>`+
-    `<td>${fmt(r.e)}</td><td>${fmt(r.s)}${nota}</td><td class="stk">${fmt(r.stock)}${r.stock<0?' ⚠️':''}</td></tr>`; });
+    const cls=r.stock<0?'neg':(r.low?'low':''); const tag=r.stock<0?' ⚠️':(r.low?` <span class="lowtag">⚠️ bajo mín (${fmt(r.min)})</span>`:'');
+    h+=`<tr class="${cls}"><td class="l art">${r.art}</td>`+
+    `<td>${fmt(r.e)}</td><td>${fmt(r.s)}${nota}</td><td class="stk">${fmt(r.stock)}${tag}</td></tr>`; });
   h+='</tbody></table>';
   document.getElementById('tabla').innerHTML=h;
 }

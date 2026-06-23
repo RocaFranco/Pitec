@@ -18,6 +18,11 @@
   .tab:hover{border-color:var(--acc)}
   .tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
   .tab .ic{margin-right:6px}
+  .tab.alert{background:#fff3e0;color:#b25f00;border-color:#f0a500;font-weight:700}
+  .tab.alert:hover{background:#ffe9c7;border-color:#d98e00}
+  .tab.alert b{color:#b25f00}
+  @keyframes alertPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,165,0,.45)}50%{box-shadow:0 0 0 5px rgba(240,165,0,0)}}
+  .tab.alert{animation:alertPulse 1.8s ease-in-out infinite}
   #frameWrap{flex:1 1 auto;position:relative}
   .frame{position:absolute;inset:0;width:100%;height:100%;border:none;background:var(--bg)}
 </style>
@@ -41,6 +46,7 @@
   <div id="frameWrap"></div>
 
 <script src="pitec_api.js"></script>
+<script src="pitec_alertas.js"></script>
 <script>
 const TABS=[
   ['🗓️','Parte Semanal','pitec_parte_semanal.html'],
@@ -70,6 +76,19 @@ function go(i){
 function initApp(){
   tabsEl.innerHTML=TABS.map((t,i)=>`<button class="tab" onclick="go(${i})"><span class="ic">${t[0]}</span>${t[1]}</button>`).join('');
   go(location.hash ? Number(location.hash.slice(1)) : 1); // arranca en Telares
+  checkAlertas();
+}
+/* ===== Chip de aviso: stock bajo mínimo (después de las pestañas) ===== */
+async function checkAlertas(){
+  if(typeof alertasStock!=='function') return;
+  const idxOf=f=>TABS.findIndex(t=>t[2]===f);
+  let a; try{ a=await alertasStock(); }catch(e){ return; }
+  const chips=[];
+  if(a.mp&&a.mp.low)     chips.push(['Stock MP',     idxOf('pitec_stock_mp.html'),     a.mp.items.length]);
+  if(a.varios&&a.varios.low) chips.push(['Stock Varios', idxOf('pitec_stock_varios.html'), a.varios.items.length]);
+  document.querySelectorAll('.tab.alert').forEach(e=>e.remove());
+  chips.forEach(c=>{ if(c[1]<0) return;
+    tabsEl.insertAdjacentHTML('beforeend',`<button class="tab alert" onclick="go(${c[1]})" title="Hay ${c[2]} ítem(s) bajo el mínimo">⚠️ ${c[0]} <b>(${c[2]})</b></button>`); });
 }
 
 /* ===== Clave de fábrica (filtra curiosos; no es seguridad fuerte) =====
