@@ -114,23 +114,29 @@ async function loadAll(){
   const add=(o,a,c)=>{ a=key(a); if(a) o[a]=(o[a]||0)+num(c); };
   (ent||[]).forEach(r=>add(entra,r['Artículo'],r['Cantidad']));
   (ret||[]).forEach(r=>add(retman,r['Artículo'],r['Cantidad']));
-  const catArt=(cv||[]).map(r=>key(r['Artículo'])).filter(Boolean);
-  // cuchillas: consumo automático de las hiladoras (campo Unidades Cuchillas)
-  let cuchHil=0;
-  [h1,h2].forEach(hh=>(hh||[]).forEach(r=>cuchHil+=num(r['Unidades Cuchillas'])));
+  const catRows=(cv||[]);
+  const catArt=catRows.map(r=>key(r['Artículo'])).filter(Boolean);
+  // artículos de descuento AUTOMÁTICO (col 'Descuento' marcada en Cat Varios). Respaldo: "Cuchillas ABB-50".
+  let autoSet=new Set(catRows.filter(r=>key(r['Descuento'])).map(r=>key(r['Artículo'])).filter(Boolean));
+  if(!autoSet.size && catArt.includes('Cuchillas ABB-50')) autoSet=new Set(['Cuchillas ABB-50']);
+  // la cuchilla que descuenta la HILADORA (marcada 'Hiladora', o la única auto, o respaldo)
+  let cuchHil=0; [h1,h2].forEach(hh=>(hh||[]).forEach(r=>cuchHil+=num(r['Unidades Cuchillas'])));
+  cuchArt = catRows.filter(r=>key(r['Descuento']).toLowerCase().includes('hilad')).map(r=>key(r['Artículo']))[0]
+           || [...autoSet][0]
+           || (catArt.includes('Cuchillas ABB-50')?'Cuchillas ABB-50':null);
   let arts=[...new Set([...catArt,...Object.keys(entra),...Object.keys(retman)])];
-  cuchArt=arts.find(a=>a.toUpperCase().includes('CUCHILLA'));
-  if(!cuchArt && cuchHil){ cuchArt='Cuchillas (hiladoras)'; arts.push(cuchArt); }
+  if(cuchHil && cuchArt && !arts.includes(cuchArt)) arts.push(cuchArt);
 
   ROWS=arts.map(a=>{const e=entra[a]||0; let s=retman[a]||0; let auto=0;
     if(a===cuchArt) auto=cuchHil; s+=auto;
     return {art:a, e, s, auto, stock:e-s};});
   ROWS.sort((a,b)=>a.art.localeCompare(b.art));
 
-  // carga
+  // carga: entrada = todas; salida = SIN las automáticas (para no descontar doble)
   ART=catArt;
+  const ART_SALIDA=catArt.filter(a=>!autoSet.has(a));
   PERS=(cp||[]).map(r=>({leg:r['Legajo'],nombre:r['Nombre']})).filter(p=>p.leg||p.nombre);
-  fillArt('eArt');fillArt('rArt');fillLeg();
+  fillArt('eArt',ART); fillArt('rArt',ART_SALIDA); fillLeg();
   ENT=(ent||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),art:r['Artículo'],cant:num(r['Cantidad'])}));
   RET=(ret||[]).slice(-8).reverse().map(r=>({f:fdate(r['Fecha']),art:r['Artículo'],cant:num(r['Cantidad']),leg:r['Legajo']}));
   renderEnt();renderRet();renderStock();
@@ -155,7 +161,7 @@ function renderStock(){
 }
 
 // ===== carga =====
-function fillArt(id){document.getElementById(id).innerHTML='<option value="">— Artículo —</option>'+ART.map(a=>`<option>${a}</option>`).join('');}
+function fillArt(id,list){list=list||ART;document.getElementById(id).innerHTML='<option value="">— Artículo —</option>'+list.map(a=>`<option>${a}</option>`).join('');}
 function fillLeg(){document.getElementById('rLeg').innerHTML='<option value="">— Legajo —</option>'+PERS.map(p=>`<option value="${p.leg}">${p.leg} - ${p.nombre}</option>`).join('');}
 function renderEnt(){document.getElementById('listEnt').innerHTML=ENT.map(x=>
   `<div class="li"><span>${x.f} · <b>${x.art}</b></span><span class="mut">${fmt(x.cant)} u.</span></div>`).join('')||'<div class="li mut">Sin entradas</div>';}
