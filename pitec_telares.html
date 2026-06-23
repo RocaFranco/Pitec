@@ -91,7 +91,13 @@ let ULT_FIN={}, ULT_FMT={};   // último fin y último formato por telar (del Sh
 let HOY=[];       // bobinas cargadas hoy (del Sheet)
 let st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:null};
 function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
-function toInput(v){ const d=new Date(v); if(isNaN(d)) return ''; const p=n=>('0'+n).slice(-2); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
+function toInput(v){
+  // El Sheet serializa la hora como "...Z" (UTC) aunque sea hora de pared local → tomamos los
+  // componentes literales del texto para NO correr la zona horaria (no perder/sumar 3 hs).
+  if(typeof v==='string'){ const m=v.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':'+m[5]; }
+  const d=new Date(v); if(isNaN(d)) return ''; const p=n=>('0'+n).slice(-2);
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
 async function loadData(){
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
   if(!apiListo()){ renderHoy(); return; }
