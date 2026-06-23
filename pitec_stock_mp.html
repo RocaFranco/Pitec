@@ -29,6 +29,10 @@
   table.mp tr.low{background:#fff7ed}
   table.mp tr.low td.stk{color:#c2410c}
   table.mp .lowtag{color:#c2410c;font-size:11px;font-weight:700;white-space:normal}
+  table.mp tr.grphead td{background:#eef2f8;font-weight:800;color:var(--acc-d);border-top:2px solid #c9d4e5}
+  table.mp tr.grphead.low td{background:#ffe9cf;color:#9a3412}
+  table.mp tr.grphead .gc{color:var(--mut);font-weight:600;font-size:12px}
+  table.mp .okmin{color:#6b7787;font-size:11px;font-weight:700}
   .loading{color:var(--mut);padding:20px;text-align:center}
   .ctabs{display:flex;gap:8px;margin-bottom:14px}
   .ctab{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:700;padding:14px;border-radius:12px;cursor:pointer;text-align:center;font-size:15px}
@@ -160,12 +164,24 @@ function renderStock(){
     `<div class="kpi"><div class="v">${fmt(totStock)}</div><div class="l">Kg en stock</div></div>
      <div class="kpi"><div class="v">${fmt(totLam)}</div><div class="l">Consumo Laminadora</div><div class="items">${items(consLam)}</div></div>
      <div class="kpi"><div class="v">${fmt(totHil)}</div><div class="l">Consumo Hiladora</div><div class="items">${items(consHil)}</div></div>`;
-  if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
+  // agrupado por CATEGORÍA: encabezado con total del grupo + mínimo, debajo sus códigos
+  const cats=[...new Set(ROWS.map(r=>r.cat))].sort((a,b)=>{const ia=ORD.indexOf(a),ib=ORD.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib) || a.localeCompare(b,'es');});
   let h=`<table class="mp"><thead><tr><th class="l">Código</th><th class="l">Categoría</th><th>Entradas</th><th>Consumo</th><th>Salidas</th><th>STOCK</th></tr></thead><tbody>`;
-  rows.forEach(r=>{ const cls=r.stock<0?'neg':(r.low?'low':''); const tag=r.stock<0?' ⚠️':(r.low?` <span class="lowtag">⚠️ categoría bajo mín (${fmt(r.grpTot)}/${fmt(r.min)})</span>`:'');
-    h+=`<tr class="${cls}"><td class="l cod">${r.cod}</td><td class="l cat">${r.cat}</td>`+
-    `<td>${fmt(r.e)}</td><td>${fmt(r.c)}</td><td>${fmt(r.r)}</td><td class="stk">${fmt(r.stock)}${tag}</td></tr>`; });
+  let any=false;
+  cats.forEach(cat=>{
+    const all=ROWS.filter(r=>r.cat===cat);
+    const shown=all.filter(r=>!q || r.cod.toUpperCase().includes(q) || cat.toUpperCase().includes(q));
+    if(!shown.length) return; any=true;
+    const sE=all.reduce((a,r)=>a+r.e,0),sC=all.reduce((a,r)=>a+r.c,0),sR=all.reduce((a,r)=>a+r.r,0),sS=all.reduce((a,r)=>a+r.stock,0);
+    const low=all.length&&all[0].low, min=all.length?all[0].min:0;
+    const htag=low?` <span class="lowtag">⚠️ bajo mín (${fmt(sS)}/${fmt(min)})</span>`:(min>0?` <span class="okmin">mín ${fmt(min)}</span>`:'');
+    h+=`<tr class="grphead${low?' low':''}"><td class="l" colspan="2">${cat} <span class="gc">(${all.length})</span></td><td>${fmt(sE)}</td><td>${fmt(sC)}</td><td>${fmt(sR)}</td><td class="stk">${fmt(sS)}${htag}</td></tr>`;
+    shown.forEach(r=>{ const cls=r.stock<0?'neg':(low?'low':'');
+      h+=`<tr class="${cls}"><td class="l cod">${r.cod}</td><td class="l cat"></td>`+
+      `<td>${fmt(r.e)}</td><td>${fmt(r.c)}</td><td>${fmt(r.r)}</td><td class="stk">${fmt(r.stock)}${r.stock<0?' ⚠️':''}</td></tr>`; });
+  });
   h+='</tbody></table>';
+  if(!any){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
   document.getElementById('tabla').innerHTML=h;
 }
 
