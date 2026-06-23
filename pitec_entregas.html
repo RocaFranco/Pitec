@@ -240,7 +240,7 @@ async function init(){
       const ent=await apiGet({action:'read',sheet:'Entregas'});
       const g={};
       (ent||[]).forEach(r=>{ const n=r['Nº Remito']; if(n===''||n==null) return;
-        if(!g[n]){ const d=new Date(r['Fecha']); const ok=!isNaN(d);
+        if(!g[n]){ const d=pDate(r['Fecha']); const ok=!!d;
           g[n]={nota:String(n),destino:r['Destino']||'Álamo',mts:0,kg:0,
             fechaISO: ok?(d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)):'',
             fechaTxt: ok?d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):''}; }

@@ -85,8 +85,8 @@ function setYear(y){year=y;render();}
 // el período se cuenta por la fecha de CIERRE: Telares=Fecha Hora Fin, Laminadora=Fecha
 function periodo(r){
   const d = metric.src==='tel' ? r['Fecha Hora Fin'] : r['Fecha'];
-  const dt = d ? new Date(d) : null;
-  if(dt && !isNaN(dt)) return {mi:dt.getMonth(), a:String(dt.getFullYear())};
+  const dt = pDate(d);
+  if(dt) return {mi:dt.getMonth(), a:String(dt.getFullYear())};
   const mi=MESES.indexOf(r['Mes']); return {mi, a:String(r['Año'])}; // fallback columnas
 }
 function dataset(){

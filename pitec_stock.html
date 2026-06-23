@@ -52,7 +52,7 @@
 document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
 const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
 const fmt=n=>Math.round(n).toLocaleString('es-AR');
-const fdate=v=>{const d=new Date(v);return isNaN(d)?'':d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});};
+const fdate=v=>{const d=pDate(v);return d?d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';};
 const COL={40:'#c79bc4',47:'#5b8fd6',53:'#b3b3b3',57:'#6aa84f',60:'#e83b3b',71:'#8a4b2a',82:'#e8923b',102:'#ec5ad0',120:'#f0d63a'};
 const txtC=hex=>{const c=hex.replace('#','');return (parseInt(c.substr(0,2),16)*299+parseInt(c.substr(2,2),16)*587+parseInt(c.substr(4,2),16)*114)/1000>150?'#222':'#fff';};
 let STOCKDET=[];

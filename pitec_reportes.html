@@ -88,8 +88,8 @@ const num=v=>{const n=Number(v);return isNaN(n)?0:n;};
 const fmt=n=>Math.round(n).toLocaleString('es-AR');
 const pct=x=>isFinite(x)&&x>0?(x*100).toFixed(2).replace('.',',')+'%':'0%';
 const sem=x=>x<0.02?'g-ok':(x<=0.05?'g-md':'g-bad');
-const mesIdx=d=>{const x=d?new Date(d):null;return (x&&!isNaN(x))?x.getMonth():-1;};
-const yearOf=d=>{const x=d?new Date(d):null;return (x&&!isNaN(x))?x.getFullYear():null;};
+const mesIdx=d=>{const x=pDate(d);return x?x.getMonth():-1;};
+const yearOf=d=>{const x=pDate(d);return x?x.getFullYear():null;};
 
 async function init(){
   if(!apiListo()){document.getElementById('tabla').innerHTML='<div class="loading">Sin conexión</div>';return;}

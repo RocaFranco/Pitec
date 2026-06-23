@@ -75,7 +75,8 @@ function pTipo(t){tipo=t;document.querySelectorAll('#tipos .opt').forEach(o=>o.c
 function netoPrev(){const b=+document.getElementById('bruto').value;document.getElementById('netoP').textContent=b>20?(b-20)+' kg':'—';}
 async function addFardo(){const b=+document.getElementById('bruto').value;if(!tipo||!(b>20)){alert('Elegí material y kg bruto');return;}
   if(!apiListo()){alert('Sin conexión');return;}
-  const r=await apiPost({action:'guardarfardo',data:{'Fecha':new Date().toISOString().slice(0,10),'Tipo Material':tipo,'Kg Bruto':b,'Kg Neto':b-20}});
+  const hoyISO=(function(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})();
+  const r=await apiPost({action:'guardarfardo',data:{'Fecha':hoyISO,'Tipo Material':tipo,'Kg Bruto':b,'Kg Neto':b-20}});
   if(r&&r.ok){PALLETS.push({cod:r.codigo,mat:tipo,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
   else alert('No se pudo: '+((r&&r.error)||'error'));}
 async function cargarPlanta(){

@@ -91,3 +91,20 @@ async function apiPost(body){
 }
 
 function apiListo(){ return PITEC_API_URL && PITEC_API_URL.indexOf('PEGAR_ACA') === -1; }
+
+/* ===== Fechas a prueba de zona horaria =====
+   El Sheet/Apps Script serializa las fechas como "...Z" (UTC) aunque sean HORA DE PARED local.
+   new Date(eso) corre la zona (-3 hs en Argentina): una fecha solo-día (00:00Z) cae al día
+   anterior y una hora 12:30 se muestra 09:30. pDate arma un Date con los MISMOS números del
+   texto, sin convertir zona. Usar pDate(v) en lugar de new Date(v) para CUALQUIER valor del Sheet. */
+function pDate(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date) return isNaN(v)?null:v;
+  if(typeof v==='string'){
+    const m=v.match(/(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+    // dd/mm/yyyy por las dudas
+    const m2=v.match(/(\d{2})\/(\d{2})\/(\d{4})/); if(m2) return new Date(+m2[3],+m2[2]-1,+m2[1]);
+  }
+  const d=new Date(v); return isNaN(d)?null:d;
+}

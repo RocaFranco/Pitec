@@ -116,7 +116,7 @@ async function guardarExterna(){
     await apiPost({action:'append',sheet:'Cat Proveedores',data:{'Nombre':nombre,'Prefijo':pref}}); }
   const data={'Proveedor':nombre,'Prefijo':pref,
     'Metros':+document.getElementById('mts').value,'Kg':+document.getElementById('kg').value,
-    'Gramaje':+document.getElementById('gr').value||'','Fecha':new Date().toISOString().slice(0,10)};
+    'Gramaje':+document.getElementById('gr').value||'','Fecha':(function(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})()};
   const r=await apiPost({action:'guardarexterna',data});
   if(r&&r.ok){alert('Bobina externa guardada ✔  Código: '+r.codigo);location.reload();}
   else alert('No se pudo: '+((r&&r.error)||'error'));

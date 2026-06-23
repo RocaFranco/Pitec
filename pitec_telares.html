@@ -90,7 +90,7 @@ const FORMAS={'Tubular':[40,47,53,57,60],'Plano':[71,82,120,102],'Transparente':
 let ULT_FIN={}, ULT_FMT={};   // último fin y último formato por telar (del Sheet)
 let HOY=[];       // bobinas cargadas hoy (del Sheet)
 let st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:null};
-function esHoy(f){ if(!f) return false; const d=new Date(f); if(isNaN(d)) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
+function esHoy(f){ const d=pDate(f); if(!d) return false; const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
 function toInput(v){
   // El Sheet serializa la hora como "...Z" (UTC) aunque sea hora de pared local → tomamos los
   // componentes literales del texto para NO correr la zona horaria (no perder/sumar 3 hs).
