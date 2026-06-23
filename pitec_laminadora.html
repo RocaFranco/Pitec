@@ -89,7 +89,7 @@
 <!-- FOOTERS -->
 <footer id="ftHoy"><span style="flex:1;color:var(--mut);font-size:13px;align-self:center">Poné una bobina o seguí la que está en máquina</span></footer>
 <footer id="ftPoner" class="hidden"><button class="ghost" onclick="goHoy()">✕</button><button class="save" id="btnAbrir" onclick="abrirMadre()" disabled>ABRIR MADRE</button></footer>
-<footer id="ftMadre" class="hidden"><button class="ghost" onclick="goHoy()">‹ Inicio</button><button class="save" onclick="cerrarMadre()" style="background:var(--acc2)">CERRAR MADRE</button></footer>
+<footer id="ftMadre" class="hidden"><button class="ghost" onclick="goHoy()">‹ Inicio</button><button class="ghost" onclick="cancelarMadre()" style="color:var(--bad)">✕ Cancelar / corregir código</button><button class="save" onclick="cerrarMadre()" style="background:var(--acc2)">CERRAR MADRE</button></footer>
 
 <!-- MODAL SACAR HIJA -->
 <div class="ov" id="ovHija" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet">
@@ -277,6 +277,11 @@ function goHoy(){show('vHoy');document.getElementById('ftHoy').classList.remove(
 function goPoner(){document.getElementById('madreCod').value='';document.getElementById('stockMsg').innerHTML='';color=null;lados=null;turno=null;madreInfo=null;
   document.querySelectorAll('#vPoner .opt').forEach(o=>o.classList.remove('sel'));
   show('vPoner');document.getElementById('ftPoner').classList.remove('hidden');document.getElementById('hBadge').textContent='PONER MADRE';chkAbrir();}
+function cancelarMadre(){
+  if(madre&&madre.hijas.length&&!confirm('Tenés '+madre.hijas.length+' hija(s) cargada(s). ¿Cancelar igual? Se pierde lo cargado de esta madre.')) return;
+  madre=null;color=null;lados=null;turno=null;madreInfo=null;
+  goPoner();   // vuelve al paso de poner madre para corregir el código
+}
 function goMadre(){show('vMadre');document.getElementById('ftMadre').classList.remove('hidden');document.getElementById('hBadge').textContent='EN MÁQUINA';renderMadre();}
 renderMatHome(); renderDesp(); goHoy();
 </script>
