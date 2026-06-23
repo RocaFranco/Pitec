@@ -128,11 +128,11 @@ function setForma(f){st.forma=f;st.fmt=null;st.vent='No';st.cat=null;mark('forma
   document.getElementById('stCat').classList.toggle('hidden', f==='Plano');
   renderFormatos(f);document.getElementById('ventBox').classList.add('hidden');updateCod();chk();}
 function renderFormatos(f){
-  document.getElementById('formatos').innerHTML=FORMAS[f].map(x=>
+  document.getElementById('formatos').innerHTML=FORMAS[f].slice().sort((a,b)=>a-b).map(x=>
    `<div class="opt" data-x="${x}" onclick="setFmt(${x})">${x}</div>`).join('');}
 function setFmt(x){st.fmt=x;st.vent='No';mark('formatos','data-x',x);
   document.getElementById('ventBox').classList.toggle('hidden', !(st.forma==='Plano'&&x===102));
-  document.querySelectorAll('#ventBox .opt').forEach(o=>o.classList.remove('sel'));
+  document.querySelectorAll('#ventBox .opt').forEach(o=>o.classList.toggle('sel',o.dataset.v===st.vent)); // "No" por defecto
   updateCod();chk();}
 function setVent(v){st.vent=v;document.querySelectorAll('#ventBox .opt').forEach(o=>o.classList.toggle('sel',o.dataset.v===v));updateCod();chk();}
 function setCat(c){st.cat=c;document.querySelectorAll('#stCat .opt').forEach(o=>o.classList.toggle('sel',o.dataset.c===c));chk();}
