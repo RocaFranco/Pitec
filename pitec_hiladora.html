@@ -29,6 +29,8 @@
   .listbox .lh{background:var(--card2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
   .li{padding:11px 14px;border-top:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;gap:10px}
   .li .cod{font-weight:700;color:var(--acc-d)} .li .mut{color:var(--mut)}
+  .desp-input{border:1.5px solid var(--bad)!important;color:var(--bad)!important;font-weight:600}
+  .desp-input::placeholder{color:var(--bad);opacity:.7}
 </style>
 </head>
 <body>
@@ -75,7 +77,7 @@
     <div class="rack"><div class="rn">Rack 1</div><input type="number" id="r1b" placeholder="bruto" oninput="rackCalc(1)"><input type="number" id="r1t" placeholder="tiradas" oninput="rackCalc(1)"><div class="neto" id="r1n">—</div></div>
     <div class="rack"><div class="rn">Rack 2</div><input type="number" id="r2b" placeholder="bruto" oninput="rackCalc(2)"><input type="number" id="r2t" placeholder="tiradas" oninput="rackCalc(2)"><div class="neto" id="r2n">—</div></div>
     <div class="rack"><div class="rn">Refile</div><input type="number" id="r3b" placeholder="bruto" oninput="rackCalc(3)"><input type="number" id="r3t" placeholder="tiradas" oninput="rackCalc(3)"><div class="neto" id="r3n">—</div></div>
-    <div class="num2" style="margin-top:6px"><div class="f"><input type="number" id="hmalo" placeholder="Kg hilo malo"></div><div class="f"><input type="number" id="purg" placeholder="Kg purgado"></div></div></div>
+    <div class="num2" style="margin-top:6px"><div class="f"><input type="number" id="hmalo" class="desp-input" placeholder="Kg hilo malo (desperdicio)"></div><div class="f"><input type="number" id="purg" class="desp-input" placeholder="Kg purgado (desperdicio)"></div></div></div>
 
   <div class="step"><div class="lbl"><span class="num">5</span>CONSUMO DE CUCHILLAS</div>
     <input type="number" id="cuch" placeholder="Cuchillas consumidas este turno"></div>
