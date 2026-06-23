@@ -53,8 +53,9 @@ async function _flush(){
     if(need.length>1 && _multiOk){
       try{ const obj=await _rawReadMulti(need);
         if(obj && typeof obj==='object' && !Array.isArray(obj) && !obj.error && need.some(s=>Array.isArray(obj[s]))) multi=obj;
-        else _multiOk=false;   // backend viejo sin 'readmulti' → de ahora en más, lecturas sueltas
-      }catch(_){ _multiOk=false; }
+        else if(obj && obj.error) _multiOk=false;   // definitivo: backend viejo sin 'readmulti'
+        // si falló transitorio dejamos multi=null y caemos a lecturas sueltas SOLO esta vez
+      }catch(_){ /* transitorio: NO desactivar readmulti; esta vez cae a lecturas sueltas */ }
     }
     if(multi){ need.forEach(s=>{ if(Array.isArray(multi[s])) got[s]=multi[s]; }); }
     else {     // lecturas sueltas; las que fallan quedan SIN cachear para reintentar luego
@@ -65,12 +66,28 @@ async function _flush(){
   }
   batch.forEach(b=>{ const d=_cacheGet(b.sheet); if(d!==null) b.resolve(d); else b.reject(new Error('No se pudo leer '+b.sheet)); });
 }
+/* fetch con TIMEOUT (corta cuelgues) + REINTENTO. Solo para LECTURAS (es seguro reintentar leer).
+   Las escrituras (apiPost) NUNCA se reintentan solas para no duplicar cargas. */
+async function _fetchJsonRetry(url, opts){
+  opts=opts||{}; const tries=opts.tries||2, timeoutMs=opts.timeoutMs||20000, validate=opts.validate;
+  let lastErr;
+  for(let i=0;i<tries;i++){
+    const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),timeoutMs);
+    try{
+      const r=await fetch(url,{signal:ctrl.signal}); clearTimeout(to);
+      const j=await r.json();
+      if(validate && !validate(j)) throw new Error('respuesta inválida');
+      return j;
+    }catch(e){ clearTimeout(to); lastErr=e; if(i<tries-1) await new Promise(s=>setTimeout(s,1200)); }
+  }
+  throw lastErr;
+}
 async function _rawRead(sheet){
-  const r=await fetch(PITEC_API_URL+'?action=read&sheet='+encodeURIComponent(sheet));
-  const j=await r.json(); if(!Array.isArray(j)) throw new Error('read '+sheet); return j;
+  return _fetchJsonRetry(PITEC_API_URL+'?action=read&sheet='+encodeURIComponent(sheet), {validate:Array.isArray});
 }
 async function _rawReadMulti(sheets){
-  const r=await fetch(PITEC_API_URL+'?action=readmulti&sheets='+encodeURIComponent(sheets.join(','))); return r.json();
+  // sin validar la forma: si el backend no soporta readmulti devuelve {error} y _flush lo maneja
+  return _fetchJsonRetry(PITEC_API_URL+'?action=readmulti&sheets='+encodeURIComponent(sheets.join(',')));
 }
 
 /* POST: escribir. Content-Type text/plain para evitar el preflight CORS de Apps Script.
