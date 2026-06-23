@@ -62,8 +62,8 @@
 <!-- PONER MADRE -->
 <main id="vPoner" class="hidden">
   <div class="step"><div class="lbl"><span class="num">1</span>LEGAJOS (operarios de Laminadora)</div>
-    <div class="num2"><div class="f"><select id="pl1"><option value="">— Legajo 1 —</option></select></div>
-      <div class="f"><select id="pl2"><option value="">— Legajo 2 —</option></select></div></div></div>
+    <div class="num2"><div class="f"><select id="pl1" onchange="syncLegajos()"><option value="">— Legajo 1 —</option></select></div>
+      <div class="f"><select id="pl2" onchange="syncLegajos()"><option value="">— Legajo 2 —</option></select></div></div></div>
   <div class="step"><div class="lbl"><span class="num">2</span>CÓDIGO BOBINA MADRE (convencional)</div>
     <input type="text" id="madreCod" placeholder="Ej: E459" oninput="chkStock()" style="text-transform:uppercase">
     <div id="stockMsg"></div></div>
@@ -129,14 +129,22 @@ function updateCargaBtns(){const ok=!!(turnoHome&&legHomeVal());
   ['btnMat','btnDesp'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!ok;});
   const h=document.getElementById('thHint'); if(h) h.textContent=ok?'✓ Cargando como turno '+turnoHome+' · legajo '+legHomeVal():'Elegí turno y legajo para habilitar la carga.';}
 function _esLam(p){const s=String(p['Sector']||'').toLowerCase();return s.includes('lamin')||s.includes('lmain');} // tolera el typo "Lmainadora"
+let LAM_PERS=[];
+function legOptions(ph,exclude,current){
+  return '<option value="">— '+ph+' —</option>'+LAM_PERS.filter(p=>String(p['Legajo'])!==String(exclude)||!exclude)
+    .map(p=>`<option value="${p['Legajo']}"${String(p['Legajo'])===String(current)?' selected':''}>${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+}
+function syncLegajos(){
+  const v1=document.getElementById('pl1').value, v2=document.getElementById('pl2').value;
+  document.getElementById('pl1').innerHTML=legOptions('Legajo 1',v2,v1);
+  document.getElementById('pl2').innerHTML=legOptions('Legajo 2',v1,v2);
+}
 async function fillLegHome(){
   if(!apiListo())return;
   try{ const cp=await apiGet({action:'read',sheet:'Cat Personal'});
-    const lam=(cp||[]).filter(p=>(p['Legajo']||p['Nombre'])&&_esLam(p));
-    const op='<option value="">— Legajo —</option>'+lam.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
-    document.getElementById('legHome').innerHTML=op;
-    document.getElementById('pl1').innerHTML='<option value="">— Legajo 1 —</option>'+lam.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
-    document.getElementById('pl2').innerHTML='<option value="">— Legajo 2 —</option>'+lam.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+    LAM_PERS=(cp||[]).filter(p=>(p['Legajo']||p['Nombre'])&&_esLam(p));
+    document.getElementById('legHome').innerHTML='<option value="">— Legajo —</option>'+LAM_PERS.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+    syncLegajos();
   }catch(e){}
 }
 function renderDesp(){   // desperdicio (Purgado/Empalme) — carga del día, no de cada bobina
