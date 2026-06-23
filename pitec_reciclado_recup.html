@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Reciclado</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:40px}
+  .opts{display:flex;gap:8px;flex-wrap:wrap}
+  .opt{background:#fff;border:1px solid var(--line);color:var(--txt);font-weight:600;padding:11px 18px;border-radius:10px;cursor:pointer}
+  .opt.sel{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .frow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .frow select,.frow input{padding:11px;font-size:15px;border:1px solid var(--line);border-radius:10px}
+  .frow select{flex:1;min-width:200px} .frow input{width:130px}
+  .listbox{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .listbox .lh{background:var(--card2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .li{padding:11px 14px;border-top:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;gap:10px}
+  .li .cod{font-weight:700;color:var(--acc-d)} .li .mut{color:var(--mut)}
+  .gline{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center}
+  .gline label{font-size:14px;font-weight:600}.gline input{padding:11px;text-align:right;border:1px solid var(--line);border-radius:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>RECICLADO</b></h1>
+  <span class="badge green">POR FARDO</span>
+  <span class="date" id="hoy"></span>
+</header>
+
+<main>
+  <div class="step"><div class="lbl"><span class="num">1</span>CARGAR FARDO (material recuperado)</div>
+    <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Elegí de dónde viene el material, el tipo y el peso. Cargás un fardo por vez.</div>
+    <div class="opts" id="origenes"></div>
+    <div class="frow">
+      <select id="tipo"><option value="">— Primero elegí origen —</option></select>
+      <input type="number" id="kg" placeholder="Kg">
+      <select id="leg"><option value="">— Legajo —</option></select>
+      <button class="save" style="flex:0 0 auto" onclick="cargarFardo()">＋ Cargar fardo</button>
+    </div>
+    <div style="font-size:12px;color:var(--mut);margin-top:8px">La <b>Tela de Empalmes</b> de Laminadora NO se carga acá: ya se cuenta desde la laminadora.</div>
+  </div>
+
+  <h3 class="sec">Fardos cargados hoy</h3>
+  <div class="listbox"><div class="lh">Origen · Tipo · Kg</div><div id="fardosHoy"><div class="li mut">Cargando…</div></div></div>
+
+  <div class="step" style="margin-top:16px"><div class="lbl"><span class="num">2</span>STOCK DE HILO EN RACKS (a fin de mes)</div>
+    <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Un solo dato por mes: cuánto hilo semielaborado quedó en los racks.</div>
+    <div class="frow" style="margin-bottom:10px">
+      <button class="ghost" onclick="shiftMes(-1)">‹</button><b id="mesLbl" style="min-width:130px;text-align:center">Junio 2026</b><button class="ghost" onclick="shiftMes(1)">›</button>
+    </div>
+    <div class="gline"><label>Stock Hilo en Racks (kg)</label><input type="number" id="stockRacks" placeholder="—"></div>
+    <button class="save" style="margin-top:10px;background:var(--acc2)" onclick="guardarStock()">Guardar stock del mes</button>
+  </div>
+</main>
+
+<script src="pitec_api.js"></script>
+<script>
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const ORIG={
+  'Telares':['Hilo Urdimbre','Hilo Trama','Hilo Cristal'],
+  'Hiladora':['Refile H1','Refile H2','Lámina H1','Lámina H2'],
+};
+const fmt=n=>Math.round(n).toLocaleString('es-AR');
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+const fdate=v=>{const d=new Date(v);return isNaN(d)?String(v||''):d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});};
+const esHoy=f=>{const d=new Date(f);if(isNaN(d))return false;const n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();};
+let origenSel=null, mesIdx=new Date().getMonth();
+
+document.getElementById('origenes').innerHTML=Object.keys(ORIG).map(o=>`<div class="opt" data-o="${o}" onclick="pickOrigen('${o}')">${o}</div>`).join('');
+function pickOrigen(o){origenSel=o;document.querySelectorAll('#origenes .opt').forEach(x=>x.classList.toggle('sel',x.dataset.o===o));
+  document.getElementById('tipo').innerHTML='<option value="">— Tipo —</option>'+ORIG[o].map(t=>`<option>${t}</option>`).join('');}
+async function cargarFardo(){
+  const tipo=document.getElementById('tipo').value, kg=+document.getElementById('kg').value, leg=document.getElementById('leg').value;
+  if(!origenSel){alert('Elegí el origen');return;}
+  if(!tipo||!(kg>0)){alert('Elegí el tipo y el peso (kg)');return;}
+  if(!leg){alert('Elegí el legajo de quien carga');return;}
+  if(!apiListo()){alert('Falta conectar el Sheet');return;}
+  const btn=document.querySelector('.frow .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
+  try{ const r=await apiPost({action:'append',sheet:'Reciclado Fardos',data:{'Fecha':todayISO(),'Origen':origenSel,'Tipo':tipo,'Kg':kg,'Legajo':leg}});
+    if(r&&r.ok){ document.getElementById('kg').value=''; loadFardos(); } else alert('No se pudo: '+((r&&r.error)||'error'));
+  }catch(e){ alert('Error: '+e); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+async function loadFardos(){
+  const box=document.getElementById('fardosHoy');
+  try{ const rows=await apiGet({action:'read',sheet:'Reciclado Fardos'});
+    const hoy=(rows||[]).filter(r=>esHoy(r['Fecha'])).reverse();
+    box.innerHTML=hoy.length?hoy.map(r=>`<div class="li"><span class="cod">${r['Origen']||''} · ${r['Tipo']||''}</span><span class="mut">${fmt(+r['Kg']||0)} kg · leg ${r['Legajo']||'—'}</span></div>`).join(''):'<div class="li mut">Todavía no cargaste fardos hoy</div>';
+  }catch(e){ box.innerHTML='<div class="li mut">Sin conexión</div>'; }
+}
+function shiftMes(d){mesIdx=(mesIdx+d+12)%12;document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';loadStock();}
+async function loadStock(){
+  if(!apiListo())return;
+  try{ const rec=await apiGet({action:'read',sheet:'Reciclado'});
+    const row=(rec||[]).find(r=>String(r['Mes'])===MESES[mesIdx]&&String(r['Año'])==='2026');
+    document.getElementById('stockRacks').value=row&&row['Stock Hilo Racks']!==''&&row['Stock Hilo Racks']!=null?row['Stock Hilo Racks']:'';
+  }catch(e){}
+}
+async function guardarStock(){
+  if(!apiListo()){alert('Sin conexión');return;}
+  const sr=document.getElementById('stockRacks').value;
+  if(sr===''){alert('Poné el stock de racks');return;}
+  const r=await apiPost({action:'guardarreciclado',data:{'Año':2026,'Mes':MESES[mesIdx],'Stock Hilo Racks':+sr}});
+  if(r&&r.ok) alert('Stock de racks de '+MESES[mesIdx]+' guardado ✔'); else alert('No se pudo: '+((r&&r.error)||'error'));
+}
+async function loadPers(){
+  if(!apiListo())return;
+  try{ const cp=await apiGet({action:'read',sheet:'Cat Personal'});
+    document.getElementById('leg').innerHTML='<option value="">— Legajo —</option>'+(cp||[]).filter(p=>p['Legajo']||p['Nombre']).map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+  }catch(e){}
+}
+document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';
+loadPers(); loadFardos(); loadStock();
+</script>
+</body>
+</html>
