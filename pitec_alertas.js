@@ -30,11 +30,11 @@
       ]);
     } catch(e){ return vacio; }
 
-    // ===== MP: stock por código (igual que pitec_stock_mp), agrupado por Grupo =====
+    // ===== MP: stock por código (igual que pitec_stock_mp), agrupado por CATEGORÍA =====
     const grupoOf = {}, minG = {};
     (cat||[]).forEach(r=>{
       const c=_key(r['Código']); if(!c) return;
-      const g=_key(r['Grupo'])||c;        // sin grupo → su propio código
+      const g=_key(r['Categoría'])||c;     // grupo = categoría; sin categoría → su propio código
       grupoOf[c]=g;
       const m=_num(r['Mínimo']); if(m>0) minG[g]=Math.max(minG[g]||0,m);
     });

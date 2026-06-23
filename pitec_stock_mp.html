@@ -117,9 +117,9 @@ async function loadAll(){
     apiGet({action:'read',sheet:'Material Hiladoras'})]); }
   catch(e){document.getElementById('tabla').innerHTML='<div class="loading">Error leyendo el Sheet</div>';return;}
 
-  const catg={}, grupoOf={}, minG={};
-  (cat||[]).forEach(r=>{const c=cdkey(r['Código']); if(!c) return; catg[c]=cdkey(r['Categoría']);
-    const g=cdkey(r['Grupo'])||c; grupoOf[c]=g; const m=num(r['Mínimo']); if(m>0) minG[g]=Math.max(minG[g]||0,m);});
+  const catg={}, minG={};
+  (cat||[]).forEach(r=>{const c=cdkey(r['Código']); if(!c) return; const cg=cdkey(r['Categoría']); catg[c]=cg;
+    const m=num(r['Mínimo']); if(m>0&&cg) minG[cg]=Math.max(minG[cg]||0,m);});
   const entra={}, retiro={}, cons={};
   const add=(o,c,k)=>{ c=cdkey(c); if(c) o[c]=(o[c]||0)+num(k); };
   (ent||[]).forEach(r=>add(entra,r['Código MP'],r['Kg']));
@@ -135,11 +135,11 @@ async function loadAll(){
   (matHil||[]).forEach(r=>{const k=num(r['Kg']),cg=cdkey(r['Categoría']); add(cons,r['Código'],k); if(k&&cg)consHil[cg]=(consHil[cg]||0)+k;});
 
   const cods=[...new Set([...Object.keys(catg),...Object.keys(entra),...Object.keys(retiro),...Object.keys(cons)])];
-  ROWS=cods.map(c=>{const e=entra[c]||0,co=cons[c]||0,re=retiro[c]||0; return {cod:c, cat:catg[c]||'(sin cat.)', grupo:grupoOf[c]||c, e, c:co, r:re, stock:e-co-re};});
+  ROWS=cods.map(c=>{const e=entra[c]||0,co=cons[c]||0,re=retiro[c]||0; return {cod:c, cat:catg[c]||'(sin cat.)', e, c:co, r:re, stock:e-co-re};});
   ROWS.sort((a,b)=>{const ia=ORD.indexOf(a.cat),ib=ORD.indexOf(b.cat);return (ia<0?9:ia)-(ib<0?9:ib) || a.cod.localeCompare(b.cod);});
-  // alerta por GRUPO: suma el stock de todos los códigos del grupo y compara con el mínimo
-  const grpTot={}; ROWS.forEach(r=>grpTot[r.grupo]=(grpTot[r.grupo]||0)+r.stock);
-  ROWS.forEach(r=>{const mn=minG[r.grupo]||0; r.min=mn; r.grpTot=grpTot[r.grupo]||0; r.low=(mn>0 && r.grpTot<mn);});
+  // alerta por CATEGORÍA: suma el stock de todos los códigos de la categoría y compara con el mínimo
+  const grpTot={}; ROWS.forEach(r=>grpTot[r.cat]=(grpTot[r.cat]||0)+r.stock);
+  ROWS.forEach(r=>{const mn=minG[r.cat]||0; r.min=mn; r.grpTot=grpTot[r.cat]||0; r.low=(mn>0 && r.grpTot<mn);});
 
   // carga: dropdown + recientes
   MP=(cat||[]).map(r=>cdkey(r['Código'])).filter(Boolean);
@@ -162,7 +162,7 @@ function renderStock(){
      <div class="kpi"><div class="v">${fmt(totHil)}</div><div class="l">Consumo Hiladora</div><div class="items">${items(consHil)}</div></div>`;
   if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
   let h=`<table class="mp"><thead><tr><th class="l">Código</th><th class="l">Categoría</th><th>Entradas</th><th>Consumo</th><th>Salidas</th><th>STOCK</th></tr></thead><tbody>`;
-  rows.forEach(r=>{ const cls=r.stock<0?'neg':(r.low?'low':''); const tag=r.stock<0?' ⚠️':(r.low?` <span class="lowtag">⚠️ grupo bajo mín (${fmt(r.grpTot)}/${fmt(r.min)})</span>`:'');
+  rows.forEach(r=>{ const cls=r.stock<0?'neg':(r.low?'low':''); const tag=r.stock<0?' ⚠️':(r.low?` <span class="lowtag">⚠️ categoría bajo mín (${fmt(r.grpTot)}/${fmt(r.min)})</span>`:'');
     h+=`<tr class="${cls}"><td class="l cod">${r.cod}</td><td class="l cat">${r.cat}</td>`+
     `<td>${fmt(r.e)}</td><td>${fmt(r.c)}</td><td>${fmt(r.r)}</td><td class="stk">${fmt(r.stock)}${tag}</td></tr>`; });
   h+='</tbody></table>';
