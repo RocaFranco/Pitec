@@ -61,22 +61,23 @@
 
 <!-- PONER MADRE -->
 <main id="vPoner" class="hidden">
-  <div class="step"><div class="lbl"><span class="num">1</span>CÓDIGO BOBINA MADRE (convencional)</div>
+  <div class="step"><div class="lbl"><span class="num">1</span>LEGAJOS (operarios de Laminadora)</div>
+    <div class="num2"><div class="f"><select id="pl1"><option value="">— Legajo 1 —</option></select></div>
+      <div class="f"><select id="pl2"><option value="">— Legajo 2 —</option></select></div></div></div>
+  <div class="step"><div class="lbl"><span class="num">2</span>CÓDIGO BOBINA MADRE (convencional)</div>
     <input type="text" id="madreCod" placeholder="Ej: E459" oninput="chkStock()" style="text-transform:uppercase">
     <div id="stockMsg"></div></div>
-  <div class="step"><div class="lbl"><span class="num">2</span>TURNO</div>
+  <div class="step"><div class="lbl"><span class="num">3</span>TURNO</div>
     <div class="opts"><div class="opt" data-tu="Día" onclick="pTurno('Día')">Mañana / Día</div>
       <div class="opt" data-tu="Noche" onclick="pTurno('Noche')">Tarde / Noche</div></div></div>
-  <div class="step"><div class="lbl"><span class="num">3</span>COLOR DE LAMINADO</div>
+  <div class="step"><div class="lbl"><span class="num">4</span>COLOR DE LAMINADO</div>
     <div class="opts"><div class="opt" data-col="Cristal" onclick="pColor('Cristal')">Cristal</div>
       <div class="opt" data-col="Blanco" onclick="pColor('Blanco')">Blanco</div></div></div>
-  <div class="step"><div class="lbl"><span class="num">4</span>LADOS</div>
+  <div class="step"><div class="lbl"><span class="num">5</span>LADOS</div>
     <div class="opts"><div class="opt" data-l="1" onclick="pLados(1)">1</div>
       <div class="opt" data-l="2" onclick="pLados(2)">2</div></div></div>
-  <div class="step"><div class="lbl"><span class="num">5</span>LEGAJOS Y VELOCIDADES</div>
-    <div class="num2"><div class="f"><input type="number" id="pl1" placeholder="Legajo 1"></div>
-      <div class="f"><input type="number" id="pl2" placeholder="Legajo 2"></div></div>
-    <div class="num2" style="margin-top:10px">
+  <div class="step"><div class="lbl"><span class="num">6</span>VELOCIDADES</div>
+    <div class="num2">
       <div class="f"><input type="text" id="pExt" placeholder="Vel. Extruder A/B"></div>
       <div class="f"><input type="text" id="pLam" placeholder="Vel. Laminated A/B"></div>
       <div class="f"><input type="text" id="pWin" placeholder="Vel. Winding"></div></div></div>
@@ -127,10 +128,15 @@ function legHomeVal(){const e=document.getElementById('legHome');return e?e.valu
 function updateCargaBtns(){const ok=!!(turnoHome&&legHomeVal());
   ['btnMat','btnDesp'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!ok;});
   const h=document.getElementById('thHint'); if(h) h.textContent=ok?'✓ Cargando como turno '+turnoHome+' · legajo '+legHomeVal():'Elegí turno y legajo para habilitar la carga.';}
+function _esLam(p){const s=String(p['Sector']||'').toLowerCase();return s.includes('lamin')||s.includes('lmain');} // tolera el typo "Lmainadora"
 async function fillLegHome(){
   if(!apiListo())return;
   try{ const cp=await apiGet({action:'read',sheet:'Cat Personal'});
-    document.getElementById('legHome').innerHTML='<option value="">— Legajo —</option>'+(cp||[]).filter(p=>p['Legajo']||p['Nombre']).map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+    const lam=(cp||[]).filter(p=>(p['Legajo']||p['Nombre'])&&_esLam(p));
+    const op='<option value="">— Legajo —</option>'+lam.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+    document.getElementById('legHome').innerHTML=op;
+    document.getElementById('pl1').innerHTML='<option value="">— Legajo 1 —</option>'+lam.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
+    document.getElementById('pl2').innerHTML='<option value="">— Legajo 2 —</option>'+lam.map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
   }catch(e){}
 }
 function renderDesp(){   // desperdicio (Purgado/Empalme) — carga del día, no de cada bobina
