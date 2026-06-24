@@ -17,6 +17,17 @@
   .totbar{position:sticky;bottom:64px;background:#eaf2ff;border:1px solid #c4dbff;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;font-weight:800;color:var(--acc-d);margin-top:10px}
   .x{color:var(--bad);cursor:pointer;font-weight:700}
   .empty{padding:14px;color:var(--mut);font-size:13px}
+  .entcard{border-top:1px solid var(--line);padding:12px 14px}
+  .enthead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .enthead .cod{font-weight:700;color:var(--acc-d)}
+  .enthead .mut{color:var(--mut);font-size:13px;flex:1}
+  .enthead .ed{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px;cursor:pointer}
+  .enthead .ed:hover{filter:brightness(.95)}
+  table.entdet{border-collapse:collapse;width:100%;font-size:13px}
+  table.entdet th,table.entdet td{border:1px solid #e3e8f0;padding:6px 10px;text-align:right}
+  table.entdet th{background:#f0f3f8;color:var(--mut);text-transform:uppercase;font-size:10.5px}
+  table.entdet td.l,table.entdet th.l{text-align:left}
+  table.entdet tr.tot td{font-weight:800;background:#eaf2ff;color:var(--acc-d)}
   #printArea{display:none}
   @media print{
     header,main,footer{display:none!important}
@@ -103,9 +114,20 @@ const uniq=a=>[...new Set(a)];
 function renderRemitos(){
   const fq=document.getElementById('qFecha')?document.getElementById('qFecha').value:'';
   const list = fq ? REMITOS.filter(r=>r.fechaISO===fq) : REMITOS.slice(0,10);
-  document.getElementById('remitos').innerHTML=list.map(r=>
-    `<div class="li" style="cursor:pointer" onclick="goEdit('${r.nota}')"><span class="cod">Remito ${r.nota}</span><span class="mut">${r.fechaTxt?r.fechaTxt+' · ':''}${r.destino} · ${r.mts.toLocaleString()} m · ${r.kg.toLocaleString()} kg  ›</span></div>`).join('')
-    ||'<div class="li mut">Sin entregas'+(fq?' en esa fecha':'')+'</div>';
+  const nf=n=>Number(n||0).toLocaleString('es-AR');
+  document.getElementById('remitos').innerHTML=list.map(r=>{
+    const cats=Object.keys(r.det||{}).sort((a,b)=>a.localeCompare(b,'es'));
+    let rows='';
+    cats.forEach(cat=>{ Object.keys(r.det[cat]).sort((a,b)=>Number(a)-Number(b)).forEach(f=>{ const v=r.det[cat][f];
+      rows+=`<tr><td class="l">${cat}</td><td>${f}</td><td>${v.n}</td><td>${nf(v.mts)}</td><td>${nf(v.kg)}</td></tr>`; }); });
+    return `<div class="entcard">
+      <div class="enthead"><span class="cod">Remito ${r.nota}</span>
+        <span class="mut">${r.fechaTxt?r.fechaTxt+' · ':''}${r.destino}</span>
+        <button class="ed" onclick="goEdit('${r.nota}')">✎ Editar</button></div>
+      <table class="entdet"><thead><tr><th class="l">Tipo</th><th>Fto</th><th>Bobinas</th><th>Metros</th><th>Kg</th></tr></thead>
+        <tbody>${rows}<tr class="tot"><td class="l">TOTAL</td><td></td><td>${r.nbob}</td><td>${nf(r.mts)}</td><td>${nf(r.kg)}</td></tr></tbody></table>
+    </div>`;
+  }).join('')||'<div class="li mut">Sin entregas'+(fq?' en esa fecha':'')+'</div>';
 }
 function buscarRemito(){const n=document.getElementById('qRemito').value.trim(); if(!n){alert('Escribí un N° de remito');return;} goEdit(n);}
 async function goEdit(remito){
@@ -241,10 +263,14 @@ async function init(){
       const g={};
       (ent||[]).forEach(r=>{ const n=r['Nº Remito']; if(n===''||n==null) return;
         if(!g[n]){ const d=pDate(r['Fecha']); const ok=!!d;
-          g[n]={nota:String(n),destino:r['Destino']||'Álamo',mts:0,kg:0,
+          g[n]={nota:String(n),destino:r['Destino']||'Álamo',mts:0,kg:0,nbob:0,det:{},
             fechaISO: ok?(d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)):'',
             fechaTxt: ok?d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):''}; }
-        g[n].mts+=Number(r['Metros'])||0; g[n].kg+=Number(r['Kg'])||0; });
+        const mts=Number(r['Metros'])||0, kg=Number(r['Kg'])||0;
+        const cat=String(r['Categoría']||'—').trim()||'—', fmt=String(r['Formato']||'—').trim()||'—';
+        const dc=(g[n].det[cat]=g[n].det[cat]||{}); const v=(dc[fmt]=dc[fmt]||{n:0,mts:0,kg:0});
+        v.n++; v.mts+=mts; v.kg+=kg;
+        g[n].nbob++; g[n].mts+=mts; g[n].kg+=kg; });
       REMITOS=Object.values(g).sort((a,b)=>Number(b.nota)-Number(a.nota));
     }catch(e){}
   }
