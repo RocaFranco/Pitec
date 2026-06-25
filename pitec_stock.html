@@ -17,7 +17,9 @@
   .grp{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
   .grp>h3{background:var(--card2);padding:11px 16px;font-size:15px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
   .grp>h3 .s{color:var(--mut);font-weight:600;font-size:13px}
-  .buscar{width:100%;max-width:420px;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;background:#fff}
+  .buscar{flex:1;min-width:200px;max-width:420px;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .filtros select{padding:11px 12px;font-size:14px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:600;color:var(--txt)}
   .matwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
   table.det{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
   table.det th,table.det td{border:1px solid #e3e8f0;padding:8px 11px;text-align:right}
@@ -44,7 +46,11 @@
     <div id="grupos"><div class="loading">Calculando stock desde el Sheet…</div></div>
   </div>
   <div id="vListado" class="hidden">
-    <input class="buscar" id="q" placeholder="🔍 Buscar código, categoría, formato o telar…" oninput="renderListado()">
+    <div class="filtros">
+      <input class="buscar" id="q" placeholder="🔍 Buscar código…" oninput="renderListado()">
+      <select id="fCat" onchange="renderListado()"><option value="">Categoría: todas</option></select>
+      <select id="fFto" onchange="renderListado()"><option value="">Fto: todos</option></select>
+    </div>
     <div class="matwrap"><div id="tabla" class="loading">Cargando…</div></div>
   </div>
 </main>
@@ -106,11 +112,22 @@ async function cargar(){
         return `<tr><td><span ${cell}>${f}</span></td><td>${v.n}</td><td>${fmt(v.mts)}</td><td>${fmt(v.kg)}</td></tr>`;}).join('')
       }</tbody></table></div>`;
   }).join('')||'<div class="loading">No hay bobinas en stock</div>';
+  fillFiltros();
   renderListado();
+}
+function fillFiltros(){
+  const cats=[...new Set(STOCKDET.map(r=>r.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  const ftos=[...new Set(STOCKDET.map(r=>r.fmt).filter(Boolean))].sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b)));
+  const cur=id=>document.getElementById(id).value;
+  const setOpts=(id,base,list,cuv)=>{document.getElementById(id).innerHTML='<option value="">'+base+'</option>'+list.map(x=>`<option value="${x}"${String(x)===cuv?' selected':''}>${x}</option>`).join('');};
+  setOpts('fCat','Categoría: todas',cats,cur('fCat'));
+  setOpts('fFto','Fto: todos',ftos,cur('fFto'));
 }
 function renderListado(){
   const q=(document.getElementById('q').value||'').trim().toLowerCase();
-  const rows=STOCKDET.filter(r=>!q || [r.cod,r.cat,r.fmt,r.telar,r.forma].join(' ').toLowerCase().includes(q))
+  const fc=document.getElementById('fCat').value, ff=document.getElementById('fFto').value;
+  const rows=STOCKDET.filter(r=>(!q || [r.cod,r.cat,r.fmt,r.telar,r.forma].join(' ').toLowerCase().includes(q))
+      && (!fc || String(r.cat)===fc) && (!ff || String(r.fmt)===ff))
     .sort((a,b)=>String(a.cod).replace(/\s/g,'').localeCompare(String(b.cod).replace(/\s/g,''),undefined,{numeric:true}));
   if(!rows.length){document.getElementById('tabla').innerHTML='<div class="loading">Sin resultados</div>';return;}
   let h=`<table class="det"><thead><tr><th class="l">Código</th><th class="l">Categoría</th><th class="l">Forma</th><th>Fto</th><th>Telar</th><th>Trama</th><th>Metros</th><th>Kg</th><th>Gramaje</th><th>Fecha</th><th class="l">Detalle</th></tr></thead><tbody>`;
