@@ -183,7 +183,9 @@ function goForm(){st={telar:null,forma:null,fmt:null,vent:'No',cat:null,trama:nu
 function goHoy(){document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
   document.getElementById('ftForm').classList.add('hidden');document.getElementById('ftHoy').classList.remove('hidden');
   document.getElementById('hBadge').textContent='HOY';}
+let _guardando=false;
 async function guardar(){
+  if(_guardando) return;   // anti doble-toque: ya hay un guardado en curso
   if(!apiListo()){alert('Falta conectar el Sheet (pitec_api.js)');return;}
   const data={
     'Nº Telar':st.telar,'Forma':st.forma,'Formato':st.fmt,'Ventana Cristal':st.vent,
@@ -194,17 +196,19 @@ async function guardar(){
     'Tiempo Producción (hs)':(function(){const i=document.getElementById('ini').value,f=document.getElementById('fin').value;if(i&&f){const h=(new Date(f)-new Date(i))/3.6e6;if(h>0)return +h.toFixed(1);}return '';})(),
     'Observaciones':''
   };
+  _guardando=true;
   const btn=document.getElementById('btnSave');btn.disabled=true;btn.textContent='Guardando…';
   try{
     const r=await apiPost({action:'guardartelares',data});
     if(r&&r.ok){
-      HOY.unshift({cod:r.codigo,tel:st.telar,forma:st.forma,fmt:st.fmt,cat:data['Categoría'],mts:data.Metros,kg:data.Kg});
       // el fin de esta bobina pasa a ser la sugerencia del telar (para la siguiente, sin recargar)
       ULT_FIN[st.telar]=document.getElementById('fin').value; ULT_FMT[st.telar]=st.fmt;
-      renderHoy();goHoy();
+      if(r.duplicado){ alert('Esa bobina ya figuraba cargada (código '+r.codigo+'). No se duplicó.'); }
+      else { HOY.unshift({cod:r.codigo,tel:st.telar,forma:st.forma,fmt:st.fmt,cat:data['Categoría'],mts:data.Metros,kg:data.Kg}); renderHoy(); }
+      goHoy();
     }else alert('No se pudo guardar: '+((r&&r.error)||'error'));
   }catch(e){alert('Error de conexión: '+e);}
-  btn.textContent='GUARDAR';btn.disabled=false;
+  _guardando=false; btn.textContent='GUARDAR';btn.disabled=false;
 }
 renderTelares();renderFormas();loadData();
 </script>
