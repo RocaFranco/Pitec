@@ -42,8 +42,8 @@
     <div style="font-size:12px;color:var(--mut);margin-top:8px">El <b>mes</b> sale por defecto el actual; cambialo si el material corresponde a un mes anterior (ej: stock de fin de mes que se arma al mes siguiente). La <b>Tela de Empalmes</b> de Laminadora NO se carga acá: ya se cuenta desde la laminadora.</div>
   </div>
 
-  <h3 class="sec">Fardos cargados hoy</h3>
-  <div class="listbox"><div class="lh">Origen · Tipo · Kg</div><div id="fardosHoy"><div class="li mut">Cargando…</div></div></div>
+  <h3 class="sec">Últimos fardos cargados</h3>
+  <div class="listbox"><div class="lh">Origen · Tipo · Kg · Fecha</div><div id="fardosHoy"><div class="li mut">Cargando…</div></div></div>
 </main>
 
 <script src="pitec_api.js"></script>
@@ -56,6 +56,10 @@ const ORIG={
 };
 const fmt=n=>Math.round(n).toLocaleString('es-AR');
 const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+// Fecha representativa del mes elegido: hoy si es el actual; si no, el último día de ese mes (para que cuente bien).
+function isoMes(mi,yr){ const n=new Date();
+  if(yr===n.getFullYear()&&mi===n.getMonth()) return todayISO();
+  const last=new Date(yr,mi+1,0).getDate(); return yr+'-'+('0'+(mi+1)).slice(-2)+'-'+('0'+last).slice(-2); }
 const fdate=v=>{const d=pDate(v);return d?d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):String(v||'');};
 const esHoy=f=>{const d=pDate(f);if(!d)return false;const n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();};
 let origenSel=null;
@@ -77,7 +81,7 @@ async function cargarFardo(){
   if(!apiListo()){alert('Falta conectar el Sheet');return;}
   const [mi,yr]=document.getElementById('mesFardo').value.split('|').map(Number);
   const btn=document.querySelector('.frow .save'); const txt=btn.textContent; btn.disabled=true; btn.textContent='Guardando…';
-  try{ const r=await apiPost({action:'append',sheet:'Reciclado Fardos',data:{'Fecha':todayISO(),'Mes':MESES[mi],'Año':yr,'Origen':origenSel,'Tipo':tipo,'Kg':kg,'Legajo':leg}});
+  try{ const r=await apiPost({action:'append',sheet:'Reciclado Fardos',data:{'Fecha':isoMes(mi,yr),'Origen':origenSel,'Tipo':tipo,'Kg':kg,'Legajo':leg}});
     if(r&&r.ok){ document.getElementById('kg').value=''; loadFardos(); } else alert('No se pudo: '+((r&&r.error)||'error'));
   }catch(e){ alert('Error: '+e); }
   finally{ btn.disabled=false; btn.textContent=txt; }
@@ -85,8 +89,8 @@ async function cargarFardo(){
 async function loadFardos(){
   const box=document.getElementById('fardosHoy');
   try{ const rows=await apiGet({action:'read',sheet:'Reciclado Fardos'});
-    const hoy=(rows||[]).filter(r=>esHoy(r['Fecha'])).reverse();
-    box.innerHTML=hoy.length?hoy.map(r=>`<div class="li"><span class="cod">${r['Origen']||''} · ${r['Tipo']||''}</span><span class="mut">${fmt(+r['Kg']||0)} kg · leg ${r['Legajo']||'—'}</span></div>`).join(''):'<div class="li mut">Todavía no cargaste fardos hoy</div>';
+    const recientes=(rows||[]).slice(-12).reverse();
+    box.innerHTML=recientes.length?recientes.map(r=>`<div class="li"><span class="cod">${r['Origen']||''} · ${r['Tipo']||''}</span><span class="mut">${fmt(+r['Kg']||0)} kg · ${fdate(r['Fecha'])} · leg ${r['Legajo']||'—'}</span></div>`).join(''):'<div class="li mut">Todavía no cargaste fardos</div>';
   }catch(e){ box.innerHTML='<div class="li mut">Sin conexión</div>'; }
 }
 async function loadPers(){

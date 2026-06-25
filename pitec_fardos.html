@@ -67,6 +67,11 @@ function fillMeses(){ const now=new Date(); let h='';
     h+=`<option value="${d.getMonth()}|${d.getFullYear()}"${i===0?' selected':''}>${MESES[d.getMonth()]} ${d.getFullYear()}</option>`; }
   document.getElementById('mesPallet').innerHTML=h;
 }
+// Fecha representativa del mes elegido: hoy si es el mes actual; si no, el último día de ese mes.
+// Así el código del pallet (FARDO-AAMM) y el conteo quedan en el mes correcto.
+function isoMes(mi,yr){ const n=new Date();
+  if(yr===n.getFullYear()&&mi===n.getMonth()) return yr+'-'+('0'+(mi+1)).slice(-2)+'-'+('0'+n.getDate()).slice(-2);
+  const last=new Date(yr,mi+1,0).getDate(); return yr+'-'+('0'+(mi+1)).slice(-2)+'-'+('0'+last).slice(-2); }
 let tipos=new Set();
 let PALLETS=[];
 let seq=3, sel=new Set();
@@ -87,8 +92,7 @@ async function addFardo(){const b=+document.getElementById('bruto').value;if(!(b
   if(!apiListo()){alert('Sin conexión');return;}
   const mat=[...tipos].join(', ')||'Mixto';
   const [mi,yr]=document.getElementById('mesPallet').value.split('|').map(Number);
-  const hoyISO=(function(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})();
-  const r=await apiPost({action:'guardarfardo',data:{'Fecha':hoyISO,'Mes':MESES[mi],'Año':yr,'Tipo Material':mat,'Kg Bruto':b,'Kg Neto':b-20}});
+  const r=await apiPost({action:'guardarfardo',data:{'Fecha':isoMes(mi,yr),'Tipo Material':mat,'Kg Bruto':b,'Kg Neto':b-20}});
   if(r&&r.ok){PALLETS.push({cod:r.codigo,mat,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
   else alert('No se pudo: '+((r&&r.error)||'error'));}
 async function cargarPlanta(){
