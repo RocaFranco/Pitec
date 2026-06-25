@@ -47,19 +47,19 @@
 <!-- MODAL REGISTRAR -->
 <div class="ov" id="ov" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet">
   <button class="modalX" onclick="this.closest('.ov').classList.remove('on')">✕</button>
-  <h3>Registrar fardo</h3><div class="hint">El código y el kg neto (bruto − 20 del pallet) salen solos.</div>
+  <h3>Registrar pallet</h3><div class="hint">El pallet se pesa entero. El código y el kg neto (bruto − 20 del pallet) salen solos. El contenido es opcional.</div>
   <div style="padding:0 16px 8px">
-    <div class="lbl" style="font-size:12px;color:var(--mut);margin-bottom:8px">Tipo de material</div>
+    <div class="lbl" style="font-size:12px;color:var(--mut);margin-bottom:8px">Contenido (opcional, podés marcar varios)</div>
     <div class="opts" id="tipos" style="margin-bottom:12px"></div>
-    <input type="number" id="bruto" placeholder="Kg bruto (con pallet)" oninput="netoPrev()">
+    <input type="number" id="bruto" placeholder="Kg bruto (balanza, con pallet)" oninput="netoPrev()">
     <div class="calc" style="margin-top:10px"><span>Kg neto: <b id="netoP">—</b></span></div>
-  </div><button class="done" onclick="addFardo()">GUARDAR FARDO</button>
+  </div><button class="done" onclick="addFardo()">GUARDAR PALLET</button>
 </div></div>
 
 <script src="pitec_api.js"></script>
 <script>
 const TIPOS=['Hilo Blanco','Hilo Cristal','Scrap Laminadora'];
-let tipo=null;
+let tipos=new Set();
 let PALLETS=[];
 let seq=3, sel=new Set();
 function renderPlanta(){
@@ -69,15 +69,17 @@ function renderPlanta(){
     ||'<div class="li mut">No hay fardos en planta</div>')
     +(PALLETS.length?`<div class="li" style="font-weight:800;background:#fff7e6;border-top:2px solid #d9a93b"><span style="flex:1">TOTAL (${PALLETS.length} pallets)</span><span>${tot.toLocaleString('es-AR')} kg</span></div>`:'');
 }
-function openFardo(){tipo=null;document.getElementById('tipos').innerHTML=TIPOS.map(t=>`<div class="opt" data-t="${t}" onclick="pTipo('${t}')">${t}</div>`).join('');
+function openFardo(){tipos=new Set();document.getElementById('tipos').innerHTML=TIPOS.map(t=>`<div class="opt" data-t="${t}" onclick="pTipo('${t}')">${t}</div>`).join('');
   document.getElementById('bruto').value='';document.getElementById('netoP').textContent='—';document.getElementById('ov').classList.add('on');}
-function pTipo(t){tipo=t;document.querySelectorAll('#tipos .opt').forEach(o=>o.classList.toggle('sel',o.dataset.t===t));}
+function pTipo(t){ tipos.has(t)?tipos.delete(t):tipos.add(t);
+  document.querySelectorAll('#tipos .opt').forEach(o=>o.classList.toggle('sel',tipos.has(o.dataset.t)));}
 function netoPrev(){const b=+document.getElementById('bruto').value;document.getElementById('netoP').textContent=b>20?(b-20)+' kg':'—';}
-async function addFardo(){const b=+document.getElementById('bruto').value;if(!tipo||!(b>20)){alert('Elegí material y kg bruto');return;}
+async function addFardo(){const b=+document.getElementById('bruto').value;if(!(b>20)){alert('Poné el kg bruto del pallet (con pallet, > 20)');return;}
   if(!apiListo()){alert('Sin conexión');return;}
+  const mat=[...tipos].join(', ')||'Mixto';
   const hoyISO=(function(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})();
-  const r=await apiPost({action:'guardarfardo',data:{'Fecha':hoyISO,'Tipo Material':tipo,'Kg Bruto':b,'Kg Neto':b-20}});
-  if(r&&r.ok){PALLETS.push({cod:r.codigo,mat:tipo,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
+  const r=await apiPost({action:'guardarfardo',data:{'Fecha':hoyISO,'Tipo Material':mat,'Kg Bruto':b,'Kg Neto':b-20}});
+  if(r&&r.ok){PALLETS.push({cod:r.codigo,mat,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
   else alert('No se pudo: '+((r&&r.error)||'error'));}
 async function cargarPlanta(){
   const hd=document.querySelector('header .date'); if(hd) hd.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
