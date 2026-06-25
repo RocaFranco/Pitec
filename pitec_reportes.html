@@ -111,7 +111,7 @@ async function init(){
     if(tp==='Purgado')add(a,mi,'desp',num(r['Kg']));        // purgado laminadora = desperdicio
     else if(tp==='Empalme')add(a,mi,'recup',num(r['Kg']));  // tela de empalmes = recuperado
   });
-  (recf||[]).forEach(r=>{const a=yearOf(r['Fecha']),mi=mesIdx(r['Fecha']);add(a,mi,'recup',num(r['Kg']));});  // reciclado por fardo (Telares + Hiladora)
+  (recf||[]).forEach(r=>{ const a=r['Año']?Number(r['Año']):yearOf(r['Fecha']); const mi=r['Mes']?MESES.indexOf(String(r['Mes']).trim()):mesIdx(r['Fecha']); add(a,mi,'recup',num(r['Kg']));});  // reciclado por fardo (cuenta por Mes/Año elegido; si no, por Fecha)
   [h1,h2].forEach(hh=>(hh||[]).forEach(r=>{const a=yearOf(r['Fecha']),mi=mesIdx(r['Fecha']);add(a,mi,'hilo',num(r['Rack 1'])+num(r['Rack 2'])+num(r['Refile']));add(a,mi,'desp',num(r['Kg Purgado']));}));
   (rec||[]).forEach(r=>{const a=Number(r['Año']),mi=MESES.indexOf(r['Mes']);
     const recup=num(r['Hilo Trama'])+num(r['Hilo Urdimbre'])+num(r['Hilo Cristal'])+num(r['H1'])+num(r['Lámina H1'])+num(r['H2'])+num(r['Lámina H2'])+num(r['Refile Lam'])+num(r['Tela Lam']);
