@@ -47,27 +47,19 @@
 </div>
 
 <script>
-const PERSONAL=[
- {l:310,n:'CORDOBA JULIO ANTONIO',s:['Mantenimiento']},
- {l:374,n:'BENITEZ CRISTIAN RAFAEL',s:['Hiladora']},
- {l:381,n:'IBAÑEZ ALAN',s:['Laminadora','Telares']},
- {l:392,n:'GARCIA AXEL AGUSTIN',s:['Hiladora']},
- {l:396,n:'PALACIOS TOBIAS VALENTIN',s:['Telares','Hiladora']},
- {l:398,n:'ESPINDOLA AXEL ARIEL',s:['Hiladora','Laminadora']},
- {l:399,n:'TORRES DARIO ALEJANDRO',s:['Telares','Hiladora']},
- {l:402,n:'CACERES EDUARDO JAVIER',s:['Telares','Laminadora']},
- {l:405,n:'PEREZ VICTOR NICOLAS',s:['Telares']},
- {l:406,n:'RODRIGUEZ RODRIGO ROMAN',s:['Hiladora','Telares']},
- {l:408,n:'REINOSO MATIAS ADRIAN',s:['Telares','Laminadora']},
- {l:419,n:'TORRES MORALES LUCIANO',s:['Telares']},
- {l:420,n:'CONTRERAS ALBERTO',s:['Hiladora']},
- {l:427,n:'ALVAREZ CRISTOBAL ADRIAN',s:['Hiladora','Telares']},
- {l:432,n:'ALEGRE MATIAS',s:['Telares']},
- {l:437,n:'PERALTA GABRIEL',s:['Hiladora','Telares']},
- {l:441,n:'SILVA AGUAYO RAFAEL DAMIAN',s:['Telares']},
- {l:443,n:'JOEL CACERES',s:['Telares']},
- {l:447,n:'GERARDO OBREGON',s:['Hiladora']},
-];
+// El personal se lee de la pestaña "Cat Personal" del Sheet (columnas Legajo, Nombre, Sector).
+// Para que alguien aparezca acá, cargalo en Cat Personal con su Sector (ej: "Telares, Laminadora").
+let PERSONAL=[];
+async function fillPersonal(){
+  if(typeof apiListo==='function' && !apiListo()) return;
+  try{
+    const cp=await apiGet({action:'read',sheet:'Cat Personal'});
+    PERSONAL=(cp||[]).filter(p=>p['Legajo']!==''&&p['Legajo']!=null)
+      .map(p=>({l:Number(p['Legajo']), n:String(p['Nombre']||('Leg. '+p['Legajo'])).trim(), s:String(p['Sector']||'')}))
+      .filter(p=>!isNaN(p.l))
+      .sort((a,b)=>a.n.localeCompare(b.n,'es'));
+  }catch(e){}
+}
 const SECTORS=[
  {name:'Telares',filter:'Telares',puestos:[{n:'Maquinista',multi:true},{n:'Changarín'}]},
  {name:'Laminadora',filter:'Laminadora',puestos:[{n:'Maquinista'},{n:'Ayudante'}]},
@@ -136,7 +128,7 @@ function openModal(sec,puesto,turno){
   // ocupados = ya asignados a CUALQUIER otro puesto (cualquier turno): una persona ocupa un solo puesto
   const ocupados=new Set();
   SECTORS.forEach(ss=>ss.puestos.forEach(pp=>TURNOS.forEach(tt=>{(data[ss.name][pp.n][tt]||[]).forEach(l=>{ if(!(ss.name===sec&&pp.n===puesto&&tt===turno)) ocupados.add(l); });})));
-  const pool=PERSONAL.filter(pe=>(!s.filter||pe.s.includes(s.filter)) && !ocupados.has(pe.l) && !ausentes[pe.l]);
+  const pool=PERSONAL.filter(pe=>(!s.filter||String(pe.s).toLowerCase().includes(s.filter.toLowerCase())) && !ocupados.has(pe.l) && !ausentes[pe.l]);
   const sel=data[sec][puesto][turno];
   document.getElementById('mPeople').innerHTML=pool.map(pe=>
     '<div class="person'+(sel.includes(pe.l)?' sel':'')+'" onclick="pick('+pe.l+')"><span>'+pe.n+'</span><span class="lg">Leg. '+pe.l+'</span></div>').join('');
@@ -191,7 +183,8 @@ async function save(){
   catch(e){ alert('Error: '+e); }
   btn.textContent='GUARDAR PARTE';btn.disabled=false;
 }
-render();renderWeek();
+renderWeek(); render();
+fillPersonal().then(render);   // trae el personal del Sheet y redibuja
 </script>
 </body>
 </html>
