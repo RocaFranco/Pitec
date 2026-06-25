@@ -51,6 +51,8 @@
   <div style="padding:0 16px 8px">
     <div class="lbl" style="font-size:12px;color:var(--mut);margin-bottom:8px">Contenido (opcional, podés marcar varios)</div>
     <div class="opts" id="tipos" style="margin-bottom:12px"></div>
+    <div class="lbl" style="font-size:12px;color:var(--mut);margin-bottom:6px">Mes contable</div>
+    <select id="mesPallet" style="width:100%;padding:11px;font-size:15px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px"></select>
     <input type="number" id="bruto" placeholder="Kg bruto (balanza, con pallet)" oninput="netoPrev()">
     <div class="calc" style="margin-top:10px"><span>Kg neto: <b id="netoP">—</b></span></div>
   </div><button class="done" onclick="addFardo()">GUARDAR PALLET</button>
@@ -59,6 +61,12 @@
 <script src="pitec_api.js"></script>
 <script>
 const TIPOS=['Hilo Blanco','Hilo Cristal','Scrap Laminadora'];
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function fillMeses(){ const now=new Date(); let h='';
+  for(let i=0;i<12;i++){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    h+=`<option value="${d.getMonth()}|${d.getFullYear()}"${i===0?' selected':''}>${MESES[d.getMonth()]} ${d.getFullYear()}</option>`; }
+  document.getElementById('mesPallet').innerHTML=h;
+}
 let tipos=new Set();
 let PALLETS=[];
 let seq=3, sel=new Set();
@@ -70,6 +78,7 @@ function renderPlanta(){
     +(PALLETS.length?`<div class="li" style="font-weight:800;background:#fff7e6;border-top:2px solid #d9a93b"><span style="flex:1">TOTAL (${PALLETS.length} pallets)</span><span>${tot.toLocaleString('es-AR')} kg</span></div>`:'');
 }
 function openFardo(){tipos=new Set();document.getElementById('tipos').innerHTML=TIPOS.map(t=>`<div class="opt" data-t="${t}" onclick="pTipo('${t}')">${t}</div>`).join('');
+  fillMeses();
   document.getElementById('bruto').value='';document.getElementById('netoP').textContent='—';document.getElementById('ov').classList.add('on');}
 function pTipo(t){ tipos.has(t)?tipos.delete(t):tipos.add(t);
   document.querySelectorAll('#tipos .opt').forEach(o=>o.classList.toggle('sel',tipos.has(o.dataset.t)));}
@@ -77,8 +86,9 @@ function netoPrev(){const b=+document.getElementById('bruto').value;document.get
 async function addFardo(){const b=+document.getElementById('bruto').value;if(!(b>20)){alert('Poné el kg bruto del pallet (con pallet, > 20)');return;}
   if(!apiListo()){alert('Sin conexión');return;}
   const mat=[...tipos].join(', ')||'Mixto';
+  const [mi,yr]=document.getElementById('mesPallet').value.split('|').map(Number);
   const hoyISO=(function(){const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})();
-  const r=await apiPost({action:'guardarfardo',data:{'Fecha':hoyISO,'Tipo Material':mat,'Kg Bruto':b,'Kg Neto':b-20}});
+  const r=await apiPost({action:'guardarfardo',data:{'Fecha':hoyISO,'Mes':MESES[mi],'Año':yr,'Tipo Material':mat,'Kg Bruto':b,'Kg Neto':b-20}});
   if(r&&r.ok){PALLETS.push({cod:r.codigo,mat,neto:b-20});document.getElementById('ov').classList.remove('on');renderPlanta();}
   else alert('No se pudo: '+((r&&r.error)||'error'));}
 async function cargarPlanta(){
