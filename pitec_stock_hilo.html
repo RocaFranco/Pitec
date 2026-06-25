@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitec · Stock Hilo Fin de Mes</title>
+<link rel="stylesheet" href="pitec_estilo.css">
+<style>
+  main{padding-bottom:40px}
+  .frow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .frow .ghost{padding:8px 14px;font-size:18px}
+  .gline{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center}
+  .gline label{font-size:14px;font-weight:600}.gline input{padding:11px;text-align:right;border:1px solid var(--line);border-radius:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PITEC · <b>STOCK HILO FIN DE MES</b></h1>
+  <span class="badge green">POR MES</span>
+  <span class="date" id="hoy"></span>
+</header>
+
+<main>
+  <div class="step"><div class="lbl"><span class="num">1</span>STOCK DE HILO EN RACKS (a fin de mes)</div>
+    <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Un solo dato por mes: cuánto hilo semielaborado quedó en los racks.</div>
+    <div class="frow">
+      <button class="ghost" onclick="shiftMes(-1)">‹</button><b id="mesLbl" style="min-width:130px;text-align:center">Junio 2026</b><button class="ghost" onclick="shiftMes(1)">›</button>
+    </div>
+    <div class="gline"><label>Stock Hilo en Racks (kg)</label><input type="number" id="stockRacks" placeholder="—"></div>
+    <button class="save" style="margin-top:10px;background:var(--acc2)" onclick="guardarStock()">Guardar stock del mes</button>
+  </div>
+</main>
+
+<script src="pitec_api.js"></script>
+<script>
+document.getElementById('hoy').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let mesIdx=new Date().getMonth();
+function shiftMes(d){mesIdx=(mesIdx+d+12)%12;document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';loadStock();}
+async function loadStock(){
+  if(!apiListo())return;
+  try{ const rec=await apiGet({action:'read',sheet:'Reciclado'});
+    const row=(rec||[]).find(r=>String(r['Mes'])===MESES[mesIdx]&&String(r['Año'])==='2026');
+    document.getElementById('stockRacks').value=row&&row['Stock Hilo Racks']!==''&&row['Stock Hilo Racks']!=null?row['Stock Hilo Racks']:'';
+  }catch(e){}
+}
+async function guardarStock(){
+  if(!apiListo()){alert('Sin conexión');return;}
+  const sr=document.getElementById('stockRacks').value;
+  if(sr===''){alert('Poné el stock de racks');return;}
+  const r=await apiPost({action:'guardarreciclado',data:{'Año':2026,'Mes':MESES[mesIdx],'Stock Hilo Racks':+sr}});
+  if(r&&r.ok) alert('Stock de racks de '+MESES[mesIdx]+' guardado ✔'); else alert('No se pudo: '+((r&&r.error)||'error'));
+}
+document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';
+loadStock();
+</script>
+</body>
+</html>

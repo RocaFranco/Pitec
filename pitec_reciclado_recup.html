@@ -43,15 +43,6 @@
 
   <h3 class="sec">Fardos cargados hoy</h3>
   <div class="listbox"><div class="lh">Origen · Tipo · Kg</div><div id="fardosHoy"><div class="li mut">Cargando…</div></div></div>
-
-  <div class="step" style="margin-top:16px"><div class="lbl"><span class="num">2</span>STOCK DE HILO EN RACKS (a fin de mes)</div>
-    <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Un solo dato por mes: cuánto hilo semielaborado quedó en los racks.</div>
-    <div class="frow" style="margin-bottom:10px">
-      <button class="ghost" onclick="shiftMes(-1)">‹</button><b id="mesLbl" style="min-width:130px;text-align:center">Junio 2026</b><button class="ghost" onclick="shiftMes(1)">›</button>
-    </div>
-    <div class="gline"><label>Stock Hilo en Racks (kg)</label><input type="number" id="stockRacks" placeholder="—"></div>
-    <button class="save" style="margin-top:10px;background:var(--acc2)" onclick="guardarStock()">Guardar stock del mes</button>
-  </div>
 </main>
 
 <script src="pitec_api.js"></script>
@@ -66,7 +57,7 @@ const fmt=n=>Math.round(n).toLocaleString('es-AR');
 const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
 const fdate=v=>{const d=pDate(v);return d?d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):String(v||'');};
 const esHoy=f=>{const d=pDate(f);if(!d)return false;const n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();};
-let origenSel=null, mesIdx=new Date().getMonth();
+let origenSel=null;
 
 document.getElementById('origenes').innerHTML=Object.keys(ORIG).map(o=>`<div class="opt" data-o="${o}" onclick="pickOrigen('${o}')">${o}</div>`).join('');
 function pickOrigen(o){origenSel=o;document.querySelectorAll('#origenes .opt').forEach(x=>x.classList.toggle('sel',x.dataset.o===o));
@@ -90,29 +81,13 @@ async function loadFardos(){
     box.innerHTML=hoy.length?hoy.map(r=>`<div class="li"><span class="cod">${r['Origen']||''} · ${r['Tipo']||''}</span><span class="mut">${fmt(+r['Kg']||0)} kg · leg ${r['Legajo']||'—'}</span></div>`).join(''):'<div class="li mut">Todavía no cargaste fardos hoy</div>';
   }catch(e){ box.innerHTML='<div class="li mut">Sin conexión</div>'; }
 }
-function shiftMes(d){mesIdx=(mesIdx+d+12)%12;document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';loadStock();}
-async function loadStock(){
-  if(!apiListo())return;
-  try{ const rec=await apiGet({action:'read',sheet:'Reciclado'});
-    const row=(rec||[]).find(r=>String(r['Mes'])===MESES[mesIdx]&&String(r['Año'])==='2026');
-    document.getElementById('stockRacks').value=row&&row['Stock Hilo Racks']!==''&&row['Stock Hilo Racks']!=null?row['Stock Hilo Racks']:'';
-  }catch(e){}
-}
-async function guardarStock(){
-  if(!apiListo()){alert('Sin conexión');return;}
-  const sr=document.getElementById('stockRacks').value;
-  if(sr===''){alert('Poné el stock de racks');return;}
-  const r=await apiPost({action:'guardarreciclado',data:{'Año':2026,'Mes':MESES[mesIdx],'Stock Hilo Racks':+sr}});
-  if(r&&r.ok) alert('Stock de racks de '+MESES[mesIdx]+' guardado ✔'); else alert('No se pudo: '+((r&&r.error)||'error'));
-}
 async function loadPers(){
   if(!apiListo())return;
   try{ const cp=await apiGet({action:'read',sheet:'Cat Personal'});
     document.getElementById('leg').innerHTML='<option value="">— Legajo —</option>'+(cp||[]).filter(p=>p['Legajo']||p['Nombre']).map(p=>`<option value="${p['Legajo']}">${p['Legajo']} - ${p['Nombre']}</option>`).join('');
   }catch(e){}
 }
-document.getElementById('mesLbl').textContent=MESES[mesIdx]+' 2026';
-loadPers(); loadFardos(); loadStock();
+loadPers(); loadFardos();
 </script>
 </body>
 </html>
