@@ -2,30 +2,28 @@
    Pegá acá la URL del Web App que te da Google al publicar el script. */
 const PITEC_API_URL = 'https://script.google.com/macros/s/AKfycby3gTgUUe0gKoaWryN-EirEdYnS9qdGF2K8yIjTGrcW3Kp6UhV7xF11voNLzyEqIUYAJg/exec';
 
-/* ===== Velocidad =====
-   1) CACHÉ por pestaña en sessionStorage → la comparten el shell y los iframes (misma pestaña
-      del navegador) y sobrevive a los Ctrl+F5. TTL corto. Se borra sola al guardar (apiPost).
-   2) AGRUPADO automático: si en el mismo instante se piden varias pestañas (Promise.all),
-      se manda UN solo pedido 'readmulti' en vez de N idas y vueltas (Apps Script las encola). */
-const _CACHE_TTL = 60 * 1000;   // 60s
+/* ===== Velocidad (sin datos viejos) =====
+   La velocidad viene del AGRUPADO, NO de guardar datos viejos:
+   - AGRUPADO: si en el mismo instante se piden varias pestañas (Promise.all), se manda UN solo
+     pedido 'readmulti' en vez de N idas y vueltas (Apps Script las encola). Es un pedido FRESCO.
+   - La caché es PRÁCTICAMENTE NULA (1,5s, solo en memoria): solo evita pedir DOS veces lo mismo
+     en el mismísimo instante. No persiste: cada Ctrl+F5 y cada dispositivo leen siempre fresco. */
+const _CACHE_TTL = 1500;   // 1,5 s — prácticamente nulo
 const _mem = {};                // sheet -> {t, data}
 let _pending = [];              // [{sheet, resolve, reject}]
 let _flushTimer = null;
 let _multiOk = true;            // si 'readmulti' no está deployado todavía, cae a lecturas sueltas
 
 function _cacheGet(sheet){
-  let e = _mem[sheet];
-  if(!e){ try{ const s=sessionStorage.getItem('pcache:'+sheet); if(s){ e=JSON.parse(s); _mem[sheet]=e; } }catch(_){} }
+  const e = _mem[sheet];                       // SOLO memoria (no persiste entre recargas)
   if(e && (Date.now()-e.t) < _CACHE_TTL) return e.data;
   return null;
 }
 function _cacheSet(sheet, data){
-  const e={t:Date.now(), data}; _mem[sheet]=e;
-  try{ sessionStorage.setItem('pcache:'+sheet, JSON.stringify(e)); }catch(_){}
+  _mem[sheet]={t:Date.now(), data};
 }
 function apiCacheClear(){
   for(const k in _mem) delete _mem[k];
-  try{ Object.keys(sessionStorage).forEach(k=>{ if(k.indexOf('pcache:')===0) sessionStorage.removeItem(k); }); }catch(_){}
 }
 
 /* GET: leer datos. Ej: apiGet({action:'read',sheet:'Telares'}) / apiGet({action:'stock'}) */
