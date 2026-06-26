@@ -71,12 +71,17 @@ const TURNOS=['Mañana','Tarde'];
 const nameOf=l=>(PERSONAL.find(p=>p.l===l)||{}).n||l;
 let data={}; let cur=null; let ausentes={};   // ausentes = {legajo: motivo}
 const MOTIVOS=['Vacaciones','Enfermedad','Ausente'];
-SECTORS.forEach(s=>{data[s.name]={};s.puestos.forEach(p=>{data[s.name][p.n]={'Mañana':[],'Tarde':[]}})});
+function resetData(){ data={}; ausentes={}; SECTORS.forEach(s=>{data[s.name]={};s.puestos.forEach(p=>{data[s.name][p.n]={'Mañana':[],'Tarde':[]}})}); }
+resetData();
 // ¿está asignado a algún puesto (cualquier turno)?
 function asignado(l){ return SECTORS.some(s=>s.puestos.some(p=>TURNOS.some(t=>data[s.name][p.n][t].includes(l)))); }
 
 function render(){
   const b=document.getElementById('board');b.innerHTML='';
+  if(isPast){ const banner=document.createElement('div');
+    banner.style.cssText='background:#fff3e0;border:1px solid #f0a500;color:#b25f00;font-weight:700;padding:10px 14px;border-radius:10px;margin-bottom:12px';
+    banner.textContent='🔒 Semana cerrada — solo lectura (las semanas pasadas no se modifican)'; b.appendChild(banner); }
+  const sb=document.querySelector('footer .save'); if(sb) sb.disabled=isPast;
   SECTORS.forEach(s=>{
     const div=document.createElement('div');div.className='sector';
     let h='<h2><span class="dot"></span>'+s.name.toUpperCase()+'</h2><div class="grid"><div class="gh"></div><div class="gh t">Mañana</div><div class="gh t">Tarde</div>';
@@ -86,7 +91,7 @@ function render(){
       TURNOS.forEach(t=>{
         const sel=data[s.name][p.n][t];
         let chips=sel.map(l=>'<span class="chip">'+nameOf(l).split(' ')[0]+' '+(nameOf(l).split(' ')[1]||'')+' <span class="x">✕</span></span>').join('');
-        h+='<div class="cell'+last+'" onclick="openModal(\''+s.name+'\',\''+p.n+'\',\''+t+'\')">'+(chips||'')+'<span class="add">+ agregar</span></div>';
+        h+='<div class="cell'+last+'"'+(isPast?'':' onclick="openModal(\''+s.name+'\',\''+p.n+'\',\''+t+'\')"')+'>'+(chips||'')+(isPast?'':'<span class="add">+ agregar</span>')+'</div>';
       });
     });
     h+='</div>';div.innerHTML=h;b.appendChild(div);
@@ -104,10 +109,11 @@ function render(){
       '<span class="x" style="cursor:pointer;color:var(--bad);font-weight:700" onclick="quitarAusente('+l+')">✕</span></div>';
   }).join(''); }
   else ah+='<div style="color:var(--mut);font-size:13px;padding:6px">Nadie marcado como ausente.</div>';
-  ah+='</div><button class="ghost" style="margin-top:8px" onclick="openAusente()">+ marcar ausente</button>';
+  ah+='</div>'+(isPast?'':'<button class="ghost" style="margin-top:8px" onclick="openAusente()">+ marcar ausente</button>');
   av.innerHTML=ah; b.appendChild(av);
 }
 function openAusente(){
+  if(isPast) return;   // semana cerrada
   cur='AUSENTE';
   document.getElementById('mTitle').textContent='Marcar ausente';
   document.getElementById('mHint').textContent='Tocá a la persona que no trabaja esta semana (vacaciones/enfermedad).';
@@ -121,6 +127,7 @@ function pickAusente(l){ ausentes[l]='Vacaciones'; closeModal(); render(); }
 function setMotivo(l,m){ ausentes[l]=m; }
 function quitarAusente(l){ delete ausentes[l]; render(); }
 function openModal(sec,puesto,turno){
+  if(isPast) return;   // semana cerrada
   cur={sec,puesto,turno};
   const s=SECTORS.find(x=>x.name===sec);const p=s.puestos.find(x=>x.n===puesto);
   document.getElementById('mTitle').textContent=sec+' · '+puesto+' · '+turno;
@@ -142,12 +149,31 @@ function pick(l){
   openModal(cur.sec,cur.puesto,cur.turno);render();
 }
 function closeModal(){document.getElementById('ov').classList.remove('on')}
-let wkOffset=0;
+let wkOffset=0, curKey='', isPast=false;
 function mondayOf(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);x.setHours(0,0,0,0);return x;}
+function isoOf(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
 function renderWeek(){const m=mondayOf(new Date());m.setDate(m.getDate()+wkOffset*7);const s=new Date(m);s.setDate(s.getDate()+5);
   const f=d=>d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
-  document.getElementById('wkLbl').textContent='Lun '+f(m)+' – Sáb '+f(s);}
+  document.getElementById('wkLbl').textContent='Lun '+f(m)+' – Sáb '+f(s);
+  curKey=isoOf(m);
+  isPast = m.getTime() < mondayOf(new Date()).getTime();   // semanas pasadas = solo lectura
+  loadParte();   // carga lo guardado de esa semana y redibuja
+}
 function shiftWeek(d){wkOffset+=d;renderWeek();}
+async function loadParte(){
+  resetData(); render();
+  if(!apiListo()) return;
+  try{
+    const rows=await apiGet({action:'read',sheet:'Parte Semanal'});
+    (rows||[]).filter(r=>String(r['Semana']).trim()===curKey).forEach(r=>{
+      const sec=String(r['Sector']||''), pue=String(r['Puesto']||''), tur=String(r['Turno']||''), leg=Number(r['Legajo']);
+      if(isNaN(leg)) return;
+      if(sec==='Ausente'){ ausentes[leg]=pue||'Ausente'; return; }
+      if(data[sec]&&data[sec][pue]&&data[sec][pue][tur]) data[sec][pue][tur].push(leg);
+    });
+  }catch(e){}
+  render();
+}
 function buildPartePDF(){
   const semana=document.getElementById('wkLbl').textContent;
   let h=`<div><h2>PITEC — PARTE SEMANAL</h2><div class="meta">Semana: ${semana} · 06:00 a 06:00</div>`;
@@ -166,25 +192,27 @@ function buildPartePDF(){
 }
 function imprimirParte(){ document.getElementById('printArea').innerHTML=buildPartePDF(); window.print(); }
 async function save(){
+  if(isPast){ alert('Esa semana ya está cerrada, no se puede modificar.'); return; }
   if(!apiListo()){alert('Falta conectar el Sheet');return;}
   // TODOS deben tener puesto asignado o estar marcados como ausentes
   const faltan=PERSONAL.filter(pe=>!asignado(pe.l)&&!ausentes[pe.l]);
   if(faltan.length){ alert('⚠️ Falta asignarles puesto (o marcarlos ausentes):\n\n'+faltan.map(p=>'• '+p.n).join('\n')); return; }
-  const semana=document.getElementById('wkLbl').textContent;
+  const semana=curKey;   // clave por semana = lunes en formato AAAA-MM-DD (única y ordenable)
+  const semanaTxt=document.getElementById('wkLbl').textContent;
   const rows=[];
   SECTORS.forEach(s=>s.puestos.forEach(p=>TURNOS.forEach(t=>{
-    data[s.name][p.n][t].forEach(l=>rows.push({'Semana':semana,'Sector':s.name,'Puesto':p.n,'Turno':t,'Legajo':l,'Nombre':nameOf(l)}));
+    data[s.name][p.n][t].forEach(l=>rows.push({'Semana':semana,'Semana Texto':semanaTxt,'Sector':s.name,'Puesto':p.n,'Turno':t,'Legajo':l,'Nombre':nameOf(l)}));
   })));
-  Object.keys(ausentes).forEach(l=>{l=Number(l); rows.push({'Semana':semana,'Sector':'Ausente','Puesto':ausentes[l],'Turno':'-','Legajo':l,'Nombre':nameOf(l)});});
+  Object.keys(ausentes).forEach(l=>{l=Number(l); rows.push({'Semana':semana,'Semana Texto':semanaTxt,'Sector':'Ausente','Puesto':ausentes[l],'Turno':'-','Legajo':l,'Nombre':nameOf(l)});});
   if(!rows.length){alert('No asignaste a nadie todavía');return;}
-  const btn=document.querySelector('.save');btn.disabled=true;btn.textContent='Guardando…';
-  try{ for(const row of rows){ await apiPost({action:'append',sheet:'Parte Semanal',data:row}); }
-    alert('Parte semanal guardado ✔ ('+rows.length+' asignaciones)'); }
+  const btn=document.querySelector('footer .save');btn.disabled=true;btn.textContent='Guardando…';
+  try{ const r=await apiPost({action:'guardarparte',semana:semana,rows:rows});   // REEMPLAZA la semana (no duplica)
+    if(r&&r.ok) alert('Parte semanal guardado ✔ ('+rows.length+' asignaciones)'); else alert('No se pudo: '+((r&&r.error)||'error')); }
   catch(e){ alert('Error: '+e); }
   btn.textContent='GUARDAR PARTE';btn.disabled=false;
 }
-renderWeek(); render();
-fillPersonal().then(render);   // trae el personal del Sheet y redibuja
+fillPersonal().then(renderWeek);   // primero el personal, luego pinta y carga la semana actual
+renderWeek();                      // pintura inicial mientras llega el personal
 </script>
 </body>
 </html>
