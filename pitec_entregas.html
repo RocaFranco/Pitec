@@ -168,22 +168,30 @@ function renderStock(){
    `<div class="stockrow" onclick="addBob('${b.cod}')"><span class="cod">${b.cod}</span><span class="det">${b.forma} · ${b.mts.toLocaleString()} m · ${b.kg} kg</span><span class="plus">＋</span></div>`).join('')
    ||'<div class="empty">No queda stock de esta categoría/formato</div>';
 }
-async function addBob(cod){const i=STOCK.findIndex(b=>b.cod===cod);if(i<0)return;
-  if(editRemito!=null){ const b=STOCK[i];
-    const r=await apiPost({action:'editaragregar',remito:editRemito,bobina:cod,destino:'Álamo'});
-    if(r&&r.ok){ STOCK.splice(i,1); bobs.push(b); renderStock(); render(); } else alert('No se pudo agregar: '+((r&&r.error)||'error'));
-  } else { bobs.push(STOCK[i]);STOCK.splice(i,1);renderStock();render(); }
+async function addBob(cod){
+  const i=STOCK.findIndex(b=>b.cod===cod); if(i<0) return;     // ya sacada del stock → ignora doble-click
+  if(bobs.some(x=>x.cod===cod)) return;                         // ya está en esta entrega → no duplicar
+  const b=STOCK[i];
+  STOCK.splice(i,1); bobs.push(b); renderStock(); render();    // optimista: se ve al instante (y no se puede re-clickear)
+  if(editRemito!=null){
+    const r=await apiPost({action:'editaragregar',remito:editRemito,bobina:cod,destino:'Álamo'}).catch(()=>null);
+    if(!(r&&r.ok)){ const j=bobs.findIndex(x=>x.cod===cod); if(j>=0) bobs.splice(j,1); STOCK.push(b); renderStock(); render(); alert('No se pudo agregar: '+((r&&r.error)||'error')); }
+  }
 }
-async function delBob(i){
-  if(editRemito!=null){ const b=bobs[i];
-    const r=await apiPost({action:'quitardeentrega',remito:editRemito,bobina:b.cod});
-    if(r&&r.ok){ STOCK.push(b); bobs.splice(i,1); render(); if(catSel&&fmtSel)renderStock(); } else alert('No se pudo quitar: '+((r&&r.error)||'error'));
-  } else { STOCK.push(bobs[i]);bobs.splice(i,1);render();if(catSel&&fmtSel)renderStock(); }
+async function delBob(cod){
+  const i=bobs.findIndex(b=>b.cod===cod); if(i<0) return;       // ya quitada → ignora doble-click
+  const b=bobs[i];
+  bobs.splice(i,1); render();                                   // optimista: se quita al instante
+  if(editRemito!=null){
+    const r=await apiPost({action:'quitardeentrega',remito:editRemito,bobina:b.cod}).catch(()=>null);
+    if(r&&r.ok){ STOCK.push(b); if(catSel&&fmtSel)renderStock(); }
+    else { bobs.splice(i,0,b); render(); alert('No se pudo quitar: '+((r&&r.error)||'error')); }
+  } else { STOCK.push(b); if(catSel&&fmtSel)renderStock(); }
 }
 function render(){
   document.getElementById('cnt').textContent=bobs.length?`(${bobs.length})`:'';
   document.getElementById('bobList').innerHTML=bobs.map((b,i)=>
-   `<div class="li"><span class="cod">${b.cod}</span><span style="flex:1;text-align:right" class="mut">${b.forma} · ${b.cat} · Fto ${b.fmt}</span><span style="width:120px;text-align:right">${b.mts.toLocaleString()} / ${b.kg}</span><span style="width:24px;text-align:center" class="x" onclick="delBob(${i})">✕</span></div>`).join('')
+   `<div class="li"><span class="cod">${b.cod}</span><span style="flex:1;text-align:right" class="mut">${b.forma} · ${b.cat} · Fto ${b.fmt}</span><span style="width:120px;text-align:right">${b.mts.toLocaleString()} / ${b.kg}</span><span style="width:24px;text-align:center" class="x" onclick="delBob('${b.cod}')">✕</span></div>`).join('')
    ||'<div class="empty">Elegí categoría y formato, y tildá las bobinas del stock</div>';
   const tm=bobs.reduce((a,b)=>a+b.mts,0),tk=bobs.reduce((a,b)=>a+b.kg,0);
   document.getElementById('tot').textContent=`${tm.toLocaleString()} m · ${tk.toLocaleString()} kg`;
@@ -221,7 +229,7 @@ async function loadStock(){
     (tel||[]).forEach(r=>{const cod=String(r['Código Bobina']).trim(); if(enStock(cod,r['Estado'])){const cat=String(r['Forma'])==='Plano'?'Plana':(r['Categoría']||'(sin cat.)'); st.push({cod,forma:r['Forma'],cat,fmt:Number(r['Formato']),mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});}});
     (lam||[]).forEach(r=>{const cod=String(r['Código Hija']).trim(); const madre=String(r['Código Madre']).trim(); if(cod && !entregadas.has(cod)) st.push({cod,forma:mForma[madre]||'Tubular',cat:'Laminada',fmt:Number(mFmt[madre])||'?',mts:Number(r['Metros Reales'])||0,kg:Number(r['Kg Laminados'])||0});});
     (ext||[]).forEach(r=>{const cod=String(r['Código']).trim(); if(enStock(cod,r['Estado'])) st.push({cod,forma:'Externa',cat:'Externa',fmt:r['Proveedor']||'—',mts:Number(r['Metros'])||0,kg:Number(r['Kg'])||0});});
-    STOCK=st;
+    STOCK=st.filter((b,idx)=>st.findIndex(x=>x.cod===b.cod)===idx);   // dedupe por código (una bobina = un código)
   }catch(e){}
 }
 function goHoy(){editRemito=null;document.getElementById('vForm').classList.add('hidden');document.getElementById('vHoy').classList.remove('hidden');
