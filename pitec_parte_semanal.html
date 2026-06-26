@@ -209,7 +209,7 @@ async function save(){
   try{ const r=await apiPost({action:'guardarparte',semana:semana,rows:rows});   // REEMPLAZA la semana (no duplica)
     if(r&&r.ok) alert('Parte semanal guardado ✔ ('+rows.length+' asignaciones)'); else alert('No se pudo: '+((r&&r.error)||'error')); }
   catch(e){ alert('Error: '+e); }
-  btn.textContent='GUARDAR PARTE';btn.disabled=false;
+  finally{ btn.textContent='GUARDAR PARTE'; btn.disabled=false; }   // SIEMPRE re-habilita
 }
 fillPersonal().then(renderWeek);   // primero el personal, luego pinta y carga la semana actual
 renderWeek();                      // pintura inicial mientras llega el personal

@@ -263,7 +263,8 @@ async function confirmar(){
       window.print(); bobs=[];catSel=null;fmtSel=null;renderRemitos();goHoy();
     } else alert('No se pudo: '+((r&&r.error)||'error'));
   }catch(e){alert('Error: '+e);}
-  btn.textContent='CONFIRMAR → ÁLAMO';btn.disabled=false;}
+  finally{ btn.textContent='CONFIRMAR → ÁLAMO'; btn.disabled=false; }   // SIEMPRE re-habilita
+}
 async function init(){
   const hd=document.querySelector('header .date'); if(hd) hd.textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});
   if(apiListo()){
