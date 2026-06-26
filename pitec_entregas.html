@@ -175,7 +175,8 @@ async function addBob(cod){
   STOCK.splice(i,1); bobs.push(b); renderStock(); render();    // optimista: se ve al instante (y no se puede re-clickear)
   if(editRemito!=null){
     const r=await apiPost({action:'editaragregar',remito:editRemito,bobina:cod,destino:'Álamo'}).catch(()=>null);
-    if(!(r&&r.ok)){ const j=bobs.findIndex(x=>x.cod===cod); if(j>=0) bobs.splice(j,1); STOCK.push(b); renderStock(); render(); alert('No se pudo agregar: '+((r&&r.error)||'error')); }
+    if(r&&r.ok&&r.dup){ const j=bobs.findIndex(x=>x.cod===cod); if(j>=0) bobs.splice(j,1); render(); alert('La bobina '+cod+' ya figura entregada, no se agregó de nuevo.'); }
+    else if(!(r&&r.ok)){ const j=bobs.findIndex(x=>x.cod===cod); if(j>=0) bobs.splice(j,1); STOCK.push(b); renderStock(); render(); alert('No se pudo agregar: '+((r&&r.error)||'error')); }
   }
 }
 async function delBob(cod){
