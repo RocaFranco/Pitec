@@ -208,7 +208,7 @@ async function guardar(){
       goHoy();
     }else alert('No se pudo guardar: '+((r&&r.error)||'error'));
   }catch(e){alert('Error de conexión: '+e);}
-  _guardando=false; btn.textContent='GUARDAR';btn.disabled=false;
+  finally{ _guardando=false; btn.textContent='GUARDAR'; btn.disabled=false; }   // SIEMPRE re-habilita el botón
 }
 renderTelares();renderFormas();loadData();
 </script>
